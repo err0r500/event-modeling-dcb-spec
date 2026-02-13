@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Event Modeling Spec</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #1e1e2e; font-family: system-ui, sans-serif; }
+    #canvas { display: block; cursor: grab; }
+    #canvas.panning { cursor: grabbing; }
+    #tooltip {
+      position: fixed;
+      padding: 8px 12px;
+      background: rgba(30, 30, 46, 0.95);
+      color: #cdd6f4;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 13px;
+      pointer-events: none;
+      display: none;
+      z-index: 1000;
+      max-width: 400px;
+      white-space: pre-wrap;
+    }
+    #status {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      color: #6c7086;
+      font-size: 12px;
+    }
+    #info {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      color: #6c7086;
+      font-size: 12px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="tooltip"></div>
+  <div id="status">Loading...</div>
+  <div id="info"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

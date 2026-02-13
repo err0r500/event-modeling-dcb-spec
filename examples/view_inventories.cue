@@ -1,0 +1,44 @@
+package examples
+
+import (
+	s "github.com/fairway/eventmodelingspec/schema"
+)
+
+ViewProductsInventories: s.#ViewSlice & {
+	name:  "ViewProductsInventories"
+	actor: _actors.User
+
+	endpoint: s.#Endpoint & {
+        verb: "GET"
+		params: {
+			productId: string
+		}
+		path: "/inventories/products/{productId}"
+	}
+
+	query: {
+		items: [
+        {
+			types: [_events.InventoryChanged]
+			tags: [{tag: _tags.product_id, value: endpoint.params.productId}]
+		},
+        ]
+	}
+
+	readModel: s.#ReadModel & {
+		name:        "ProductInvetories"
+		cardinality: "single"
+		fields: {
+			products: [...{
+				productId:    string
+				quantity:  int
+			}]
+		}
+		mapping: {
+			"products.productId": {event: _events.InventoryChanged, field: "productId"}
+			"products.quantity": {event: _events.InventoryChanged, field: "inventory"}
+		}
+	}
+
+	scenarios: []
+}

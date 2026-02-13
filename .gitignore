@@ -1,0 +1,4 @@
+.board
+pkg/web/dist
+web-server
+rust
