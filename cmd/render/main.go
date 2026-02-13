@@ -10,7 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/fairway/eventmodelingspec/pkg/board"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/board"
 )
 
 func main() {

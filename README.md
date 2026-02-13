@@ -5,6 +5,26 @@ go run ./cmd/tui -dir .board/
 cd web && BOARD_DIR=../.board npm run dev
 ```
 
+## Using in Another Repo
+
+Add dependency:
+```bash
+cue mod init your.module/name
+cue mod get github.com/err0r500/event-modeling-dcb-spec@latest
+```
+
+Import schema:
+```cue
+package myboard
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+em.#Board & {
+    name: "MyDomain"
+    // ...
+}
+```
+
 ## Validation Rules
 
 ### Board Structure

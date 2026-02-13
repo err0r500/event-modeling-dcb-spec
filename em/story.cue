@@ -1,4 +1,4 @@
-package schema
+package em
 
 // #StoryStep - Narrative reference to an existing slice
 //

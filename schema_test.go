@@ -8,16 +8,16 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
-	"github.com/fairway/eventmodelingspec/pkg/render"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/render"
 )
 
 func TestValidBoard(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-_sliceA: schema.#ChangeSlice & {
+_sliceA: em.#ChangeSlice & {
 	kind: "slice"
 	name: "SliceA"
 	type: "change"
@@ -28,7 +28,7 @@ _sliceA: schema.#ChangeSlice & {
 	scenarios: []
 }
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test Board"
 	tags: {
 		mytag: {name: "mytag"}
@@ -57,9 +57,9 @@ func TestInvalidDCBTag(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {
 		realtag: {name: "realtag"}
@@ -98,9 +98,9 @@ func TestValidCommandQueriesEventEmittedLater(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -160,9 +160,9 @@ func TestInvalidStoryRefNonexistentSlice(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -199,9 +199,9 @@ func TestValidStoryRefFutureSlice(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-_futureSlice: schema.#ChangeSlice & {
+_futureSlice: em.#ChangeSlice & {
 	kind: "slice"
 	name: "FutureSlice"
 	type: "change"
@@ -212,7 +212,7 @@ _futureSlice: schema.#ChangeSlice & {
 	scenarios: []
 }
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -239,9 +239,9 @@ func TestInvalidActorNotDefined(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -269,9 +269,9 @@ func TestValidFutureEventInGWT(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-gwt: schema.#GWT & {
+gwt: em.#GWT & {
 	name: "Valid GWT with future event"
 	given: [{
 		eventType: "SomeEvent"
@@ -293,9 +293,9 @@ func TestValidFieldsFromEndpoint(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -335,9 +335,9 @@ func TestValidViewReadModelFromEvents(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -381,9 +381,9 @@ func TestInvalidViewReadModelFieldNotFromEvents(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -427,9 +427,9 @@ func TestValidViewReadModelWithComputed(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -474,9 +474,9 @@ func TestInvalidComputedFieldNotInEvent(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -521,9 +521,9 @@ func TestInvalidComputedEventNotQueried(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -580,9 +580,9 @@ func TestValidViewMappingTypeMatch(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -627,9 +627,9 @@ func TestInvalidViewMappingTypeMismatch(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -675,9 +675,9 @@ func TestInvalidViewMappingFieldNotInEvent(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -722,9 +722,9 @@ func TestValidDottedPathMapping(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -774,9 +774,9 @@ func TestInvalidDottedPathMapping(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -825,9 +825,9 @@ func TestInvalidDottedPathTypeMismatch(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -990,9 +990,9 @@ func TestValidPathParamInParams(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -1022,9 +1022,9 @@ func TestInvalidPathParamMissing(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -1054,9 +1054,9 @@ func TestValidViewScenarioGivenInQuery(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {
@@ -1098,9 +1098,9 @@ func TestInvalidViewScenarioGivenNotInQuery(t *testing.T) {
 	src := `
 package test
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-board: schema.#Board & {
+board: em.#Board & {
 	name: "Test"
 	tags: {}
 	events: {

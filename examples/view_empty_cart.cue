@@ -1,8 +1,8 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-ViewEmptyCart: schema.#StoryStep & {
+ViewEmptyCart: em.#StoryStep & {
 	kind:  "story"
 	name:  "view empty cart"
 	slice: ViewCart

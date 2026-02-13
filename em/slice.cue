@@ -1,4 +1,4 @@
-package schema
+package em
 
 // #SliceType - Discriminator for slice behavior
 //

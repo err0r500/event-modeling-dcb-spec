@@ -1,13 +1,13 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-AddItem: schema.#ChangeSlice & {
+AddItem: em.#ChangeSlice & {
 	name:  "AddItem"
 	actor: _actors.User
 	image: "mockups/add_item.png"
 
-	trigger: schema.#EndpointTrigger & {
+	trigger: em.#EndpointTrigger & {
 		endpoint: {
 			verb: "POST"
 			params: {cartId: string}
@@ -22,7 +22,7 @@ AddItem: schema.#ChangeSlice & {
 		}
 	}
 
-	command: schema.#Command & {
+	command: em.#Command & {
 		fields: {
 			cartId:      string
 			productId:   string
@@ -62,7 +62,6 @@ AddItem: schema.#ChangeSlice & {
 			given: [_events.CartCreated & {fields: {cartId: "abc"}}]
 			when: {}
 			then: {
-				success: true
 				events: [_events.CartCreated, _events.ItemAdded]
 			}
 		},
@@ -71,7 +70,6 @@ AddItem: schema.#ChangeSlice & {
 			given: [_events.CartCreated & {fields: {cartId: "abc"}}]
 			when: {cartId: "abc"}
 			then: {
-				success: false
 				error:   "already created"
 			}
 		},
@@ -82,7 +80,6 @@ AddItem: schema.#ChangeSlice & {
 			]
 			when: {cartId: "abc"}
 			then: {
-				success: false
 				error:   "conflict"
 			}
 		},
@@ -96,7 +93,6 @@ AddItem: schema.#ChangeSlice & {
 			]
 			when: {}
 			then: {
-				success: false
 				error:   "can't add more than 3 items"
 			}
 		},
@@ -108,7 +104,7 @@ AddItem: schema.#ChangeSlice & {
 			]
 			when: {}
 			then: {
-				success: false
+                error: "woops"
 			}
 		},
 	]

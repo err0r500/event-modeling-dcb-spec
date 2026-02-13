@@ -1,14 +1,14 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-RemoveItem: schema.#ChangeSlice & {
+RemoveItem: em.#ChangeSlice & {
 	name:  "RemoveItem"
 	actor: _actors.User
 
     image: "./mockups/one_item_cart.png"
 
-	trigger: schema.#EndpointTrigger & {
+	trigger: em.#EndpointTrigger & {
 		endpoint: {
 			verb: "DELETE"
 			params: {cartId: string, itemId: string}

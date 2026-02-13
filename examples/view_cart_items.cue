@@ -1,7 +1,7 @@
 package examples
 
 import (
-	s "github.com/fairway/eventmodelingspec/schema"
+	s "github.com/err0r500/event-modeling-dcb-spec/em"
 	"list"
 )
 

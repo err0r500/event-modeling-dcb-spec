@@ -1,4 +1,4 @@
-package schema
+package em
 
 // #EventInstance - Reference to an event with optional field values
 //

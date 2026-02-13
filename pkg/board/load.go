@@ -8,7 +8,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 
-	"github.com/fairway/eventmodelingspec/pkg/render"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/render"
 )
 
 // Board holds a loaded and validated board.

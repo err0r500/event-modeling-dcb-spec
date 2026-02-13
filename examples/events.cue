@@ -1,8 +1,8 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-_events: [Type=string]: schema.#Event & {eventType: Type}
+_events: [Type=string]: em.#Event & {eventType: Type}
 _events: {
 	CartCreated: {
 		fields: {

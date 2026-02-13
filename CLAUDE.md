@@ -26,7 +26,7 @@ cmd/render/      → ASCII box renderer for individual instants
 pkg/board/       → Board loading: CUE file → Go Board struct via cue.Value unification
 pkg/render/      → Rendering + validation (ValidateBoard, validateParameterizedTags)
 pkg/tui/         → TUI model, styles, detail view, item definitions
-schema/          → CUE schemas: board.cue (main), types.cue, gwt.cue, slice.cue, story.cue, dcb.cue, endpoint.cue
+em/              → CUE schemas: board.cue (main), types.cue, gwt.cue, slice.cue, story.cue, dcb.cue, endpoint.cue
 examples/        → Shopping cart domain example (split across multiple .cue files)
 schema_test.go   → 12 validation tests covering board structure, ordering, references, GWT
 ```

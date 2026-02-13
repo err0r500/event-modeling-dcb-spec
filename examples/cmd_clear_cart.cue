@@ -1,11 +1,11 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-ClearCart: schema.#ChangeSlice & {
+ClearCart: em.#ChangeSlice & {
 	name:  "ClearCart"
 	actor: _actors.User
-	trigger: schema.#EndpointTrigger & {
+	trigger: em.#EndpointTrigger & {
 		endpoint: {
 			verb: "DELETE"
 			params: {cartId: string}

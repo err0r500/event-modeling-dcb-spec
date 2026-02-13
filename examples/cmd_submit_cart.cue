@@ -1,11 +1,11 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-SubmitCart: schema.#ChangeSlice & {
+SubmitCart: em.#ChangeSlice & {
     name:  "SubmitCart"
     actor: _actors.User
-    trigger: schema.#EndpointTrigger & {
+    trigger: em.#EndpointTrigger & {
         endpoint: {
             verb: "POST"
             params: {cartId: string}

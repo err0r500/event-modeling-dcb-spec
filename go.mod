@@ -1,4 +1,4 @@
-module github.com/fairway/eventmodelingspec
+module github.com/err0r500/event-modeling-dcb-spec
 
 go 1.25.6
 

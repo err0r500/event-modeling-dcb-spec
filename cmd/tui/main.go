@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/fairway/eventmodelingspec/pkg/tui"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/tui"
 )
 
 func main() {

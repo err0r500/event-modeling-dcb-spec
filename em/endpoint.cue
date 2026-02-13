@@ -1,4 +1,4 @@
-package schema
+package em
 
 // #Endpoint - HTTP API surface for a slice
 //

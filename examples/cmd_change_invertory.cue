@@ -1,13 +1,13 @@
 package examples
 
-import "github.com/fairway/eventmodelingspec/schema"
+import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-ChangeInventory: schema.#ChangeSlice & {
+ChangeInventory: em.#ChangeSlice & {
 	name: "ChangeInventory"
 
 	actor: _actors.InventoryEventBus
 
-	trigger: schema.#ExternalEventTrigger & {
+	trigger: em.#ExternalEventTrigger & {
 		externalEvent: {
 			name: "InventoryChanged"
 			fields: {
@@ -17,8 +17,8 @@ ChangeInventory: schema.#ChangeSlice & {
 		}
 	}
 
-	command: schema.#Command & {
-		fields: schema.#Field & {
+	command: em.#Command & {
+		fields: em.#Field & {
 			productId: string
 			inventory: int
 		}

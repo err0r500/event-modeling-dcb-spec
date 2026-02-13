@@ -1,4 +1,4 @@
-package schema
+package em
 
 // #TagRef - Tag reference with optional value for parameterized tags
 //

@@ -15,8 +15,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/fairway/eventmodelingspec/pkg/board"
-	"github.com/fairway/eventmodelingspec/pkg/render"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/board"
+	"github.com/err0r500/event-modeling-dcb-spec/pkg/render"
 )
 
 type viewMode int
