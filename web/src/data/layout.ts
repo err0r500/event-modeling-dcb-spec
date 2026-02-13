@@ -246,6 +246,7 @@ function addChangeSlice(
     height: 35,
     label: slice.name,
     color: '#cdd6f4',
+    metadata: { devstatus: slice.devstatus },
     sliceIndex: colIndex,
   });
 
@@ -377,6 +378,7 @@ function addViewSlice(
     height: 35,
     label: slice.name,
     color: '#cdd6f4',
+    metadata: { devstatus: slice.devstatus },
     sliceIndex: colIndex,
   });
 

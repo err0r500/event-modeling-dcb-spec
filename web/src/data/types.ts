@@ -23,6 +23,7 @@ export interface ChangeSlice {
   name: string;
   actor: string;
   image?: string;
+  devstatus?: string;
   trigger: Trigger;
   command: Command;
   emits: EventEmit[];
@@ -35,6 +36,7 @@ export interface ViewSlice {
   name: string;
   actor: string;
   image?: string;
+  devstatus?: string;
   endpoint: Endpoint;
   query: QueryItem[];
   readModel: ReadModel;

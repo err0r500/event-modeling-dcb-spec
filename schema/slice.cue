@@ -7,6 +7,8 @@ package schema
 //   "view" - query slice that reads events (reads)
 #SliceType: "change" | "view"
 
+#DevStatus: "specifying" | "todo" | "doing" | "done"
+
 // #SliceBase - Common fields shared by all slices
 //
 // Fields:
@@ -19,6 +21,7 @@ package schema
 	name!:  string
 	type:   #SliceType
 	actor!: #Actor
+    devstatus: #DevStatus | *"specifying"
 }
 
 // #ChangeSlice - Command that emits events (write operation)

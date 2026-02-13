@@ -132,6 +132,9 @@ func reifyChangeSlice(v cue.Value) map[string]any {
 	if img := getString(v, "image"); img != "" {
 		out["image"] = img
 	}
+	if ds := getString(v, "devstatus"); ds != "" {
+		out["devstatus"] = ds
+	}
 	return out
 }
 
@@ -148,6 +151,9 @@ func reifyViewSlice(v cue.Value) map[string]any {
 	}
 	if img := getString(v, "image"); img != "" {
 		out["image"] = img
+	}
+	if ds := getString(v, "devstatus"); ds != "" {
+		out["devstatus"] = ds
 	}
 	return out
 }

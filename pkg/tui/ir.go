@@ -36,19 +36,21 @@ type tableRow struct {
 }
 
 const typeColWidth = 8
+const statusColWidth = 12
 
 func makeColumns(totalWidth int) []table.Column {
 	available := totalWidth - 2
 	if available < 30 {
 		available = 30
 	}
-	remaining := available - typeColWidth
+	remaining := available - typeColWidth - statusColWidth
 	nameW := remaining * 2 / 8
 	consumesW := remaining * 3 / 8
 	emitsW := remaining - nameW - consumesW
 	return []table.Column{
 		{Title: "Type", Width: typeColWidth},
 		{Title: "Name", Width: nameW},
+		{Title: "Status", Width: statusColWidth},
 		{Title: "Consumes", Width: consumesW},
 		{Title: "Emits", Width: emitsW},
 	}
@@ -575,9 +577,11 @@ func makeTableRowsFromIR(manifest *board.BoardManifest, slices map[string]map[st
 	rows := make([]tableRow, len(manifest.Flow))
 	for i, entry := range manifest.Flow {
 		var consumed, emitted []string
+		var devstatus string
 		if data, ok := slices[entry.File]; ok {
 			consumed = extractConsumedIR(data, entry.Type)
 			emitted = extractEmittedIR(data)
+			devstatus, _ = data["devstatus"].(string)
 		}
 
 		name := entry.Name
@@ -606,6 +610,7 @@ func makeTableRowsFromIR(manifest *board.BoardManifest, slices map[string]map[st
 			row: table.Row{
 				typeStr,
 				name,
+				devstatus,
 				strings.Join(consumed, ", "),
 				strings.Join(emitted, ", "),
 			},

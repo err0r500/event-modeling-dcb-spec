@@ -84,6 +84,8 @@ var (
 	viewScenarioGivenPattern = regexp.MustCompile(`view_(\w+)_scenario(\d+)_given_(\w+)_must_be_in_query`)
 	// Pattern: slice_AddItem_scenarioN_given_EventType_must_be_in_query
 	sliceScenarioGivenPattern = regexp.MustCompile(`slice_(\w+)_scenario(\d+)_given_(\w+)_must_be_in_query`)
+	// Pattern: slice_AddItem_scenarioN_then_EventType_must_be_in_emits
+	scenarioThenPattern = regexp.MustCompile(`slice_(\w+)_scenario(\d+)_then_(\w+)_must_be_in_emits`)
 	// Pattern: slice_AddItem_endpoint_path_param_cartId_must_be_in_params (or view_)
 	pathParamPattern = regexp.MustCompile(`(slice|view)_(\w+)_endpoint_path_param_(\w+)_must_be_in_params`)
 	// Pattern: _actorValid
@@ -277,6 +279,11 @@ func formatSingleError(err errors.Error) (string, string) {
 	// Scenario: slice given event not in query
 	if match := sliceScenarioGivenPattern.FindStringSubmatch(msg); match != nil {
 		return ErrScenarioGiven, fmt.Sprintf("slice %q scenario %s: given event %q must be in query", match[1], match[2], match[3])
+	}
+
+	// Scenario: then event not in emits
+	if match := scenarioThenPattern.FindStringSubmatch(msg); match != nil {
+		return ErrScenarioThen, fmt.Sprintf("slice %q scenario %s: then event %q must be in emits", match[1], match[2], match[3])
 	}
 
 	// Endpoint: path param missing

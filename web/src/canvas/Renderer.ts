@@ -234,11 +234,29 @@ export class Renderer {
 
         if (this.viewport.zoom > 0.15) {
             const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+            const devstatus = obj.metadata?.devstatus as string | undefined;
+
+            // Draw slice name (shift up if devstatus present)
+            const titleY = devstatus ? obj.y + obj.height / 2 - 8 : obj.y + obj.height / 2;
             ctx.fillStyle = obj.color;
             ctx.font = `600 ${16 / zoomFactor}px system-ui`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(obj.label, obj.x + obj.width / 2, obj.y + obj.height / 2);
+            ctx.fillText(obj.label, obj.x + obj.width / 2, titleY);
+
+            // Draw devstatus below title
+            if (devstatus) {
+                const statusColors: Record<string, string> = {
+                    'specifying': '#6c7086',
+                    'todo': '#89b4fa',
+                    'doing': '#f9e2af',
+                    'done': '#a6e3a1',
+                };
+                const statusColor = statusColors[devstatus] || '#6c7086';
+                ctx.fillStyle = statusColor;
+                ctx.font = `500 ${11 / zoomFactor}px system-ui`;
+                ctx.fillText(devstatus, obj.x + obj.width / 2, obj.y + obj.height / 2 + 10);
+            }
         }
     }
 
