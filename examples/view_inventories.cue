@@ -5,8 +5,10 @@ import (
 )
 
 ViewProductsInventories: s.#ViewSlice & {
-	name:  "ViewProductsInventories"
-	actor: _actors.User
+	name:    "ViewProductsInventories"
+	actor:   _actors.User
+	context: "Inventory"
+	chapter: "BrowseAndFill"
 
 	endpoint: s.#Endpoint & {
         verb: "GET"

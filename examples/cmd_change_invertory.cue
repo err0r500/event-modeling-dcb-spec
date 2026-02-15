@@ -3,7 +3,9 @@ package examples
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
 ChangeInventory: em.#ChangeSlice & {
-	name: "ChangeInventory"
+	name:    "ChangeInventory"
+	context: "Inventory"
+	chapter: "BrowseAndFill"
 
 	actor: _actors.InventoryEventBus
 

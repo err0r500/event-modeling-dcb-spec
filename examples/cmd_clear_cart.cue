@@ -3,8 +3,10 @@ package examples
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
 ClearCart: em.#ChangeSlice & {
-	name:  "ClearCart"
-	actor: _actors.User
+	name:    "ClearCart"
+	actor:   _actors.User
+	context: "Cart"
+	chapter: "BrowseAndFill"
 	trigger: em.#EndpointTrigger & {
 		endpoint: {
 			verb: "DELETE"

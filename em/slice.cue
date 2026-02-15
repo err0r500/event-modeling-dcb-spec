@@ -22,6 +22,10 @@ package em
 	type:   #SliceType
 	actor!: #Actor
     devstatus: #DevStatus | *"specifying"
+	// Optional bounded context this slice belongs to (must exist in board.contexts)
+	context?: string
+	// Optional narrative chapter this slice belongs to (must exist in board.chapters)
+	chapter?: string
 }
 
 // #ChangeSlice - Command that emits events (write operation)

@@ -37,6 +37,12 @@ import (
 	// All actors
 	actors: [Name=string]: #Actor & {name: Name}
 
+	// Bounded contexts (responsibility boundaries)
+	contexts: [Name=string]: #Context & {name: Name} | *{}
+
+	// Narrative chapters (timeline segments)
+	chapters: [Name=string]: #Chapter & {name: Name} | *{}
+
 	// Ordered flow of instants (slices and story steps)
 	flow: [...#Instant]
 
@@ -59,6 +65,12 @@ import (
 
 	// Actor list
 	_actorList: [for k, _ in actors {k}]
+
+	// Context list
+	_contextList: [for k, _ in contexts {k}]
+
+	// Chapter list
+	_chapterList: [for k, _ in chapters {k}]
 
 	// Map: eventType -> list of tag names
 	_eventTagMap: {for k, e in events {(k): [for t in e.tags {t.name}]}}
@@ -92,6 +104,20 @@ import (
 	// Validate slices - actor must be defined
 	for i, inst in flow if inst.kind == "slice" {
 		_actorValid: list.Contains(_actorList, inst.actor.name) & true
+	}
+
+	// Validate slices - context must be defined (if set)
+	for i, inst in flow if inst.kind == "slice" {
+		if inst.context != _|_ {
+			_contextValid: list.Contains(_contextList, inst.context) & true
+		}
+	}
+
+	// Validate slices - chapter must be defined (if set)
+	for i, inst in flow if inst.kind == "slice" {
+		if inst.chapter != _|_ {
+			_chapterValid: list.Contains(_chapterList, inst.chapter) & true
+		}
 	}
 
 	// Validate change slices

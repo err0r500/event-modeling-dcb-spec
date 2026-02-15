@@ -1148,3 +1148,139 @@ board: em.#Board & {
 `
 	assertInvalid(t, src, "given_EventB_must_be_in_query")
 }
+
+func TestValidBoardWithContextsAndChapters(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		EventA: {eventType: "EventA", fields: {}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: {
+		Billing: {description: "Handles payments"}
+	}
+	chapters: {
+		Onboarding: {description: "User signs up"}
+	}
+	flow: [{
+		kind: "slice"
+		name: "TestSlice"
+		type: "change"
+		actor: {name: "User"}
+		context: "Billing"
+		chapter: "Onboarding"
+		trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {}, path: "/test"}}
+		command: {name: "TestCmd", fields: {}, query: {items: []}}
+		emits: [events.EventA]
+		scenarios: []
+	}]
+}
+`
+	assertValid(t, src)
+}
+
+func TestValidBoardWithEmptyContextsAndChapters(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		EventA: {eventType: "EventA", fields: {}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	flow: [{
+		kind: "slice"
+		name: "TestSlice"
+		type: "change"
+		actor: {name: "User"}
+		trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {}, path: "/test"}}
+		command: {name: "TestCmd", fields: {}, query: {items: []}}
+		emits: [events.EventA]
+		scenarios: []
+	}]
+}
+`
+	assertValid(t, src)
+}
+
+func TestInvalidContextNotDefined(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		EventA: {eventType: "EventA", fields: {}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: {
+		Billing: {description: "Handles payments"}
+	}
+	flow: [{
+		kind: "slice"
+		name: "TestSlice"
+		type: "change"
+		actor: {name: "User"}
+		context: "NonExistent"
+		trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {}, path: "/test"}}
+		command: {name: "TestCmd", fields: {}, query: {items: []}}
+		emits: [events.EventA]
+		scenarios: []
+	}]
+}
+`
+	assertInvalid(t, src, "_contextValid")
+}
+
+func TestInvalidChapterNotDefined(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		EventA: {eventType: "EventA", fields: {}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	chapters: {
+		Onboarding: {description: "User signs up"}
+	}
+	flow: [{
+		kind: "slice"
+		name: "TestSlice"
+		type: "change"
+		actor: {name: "User"}
+		chapter: "NonExistent"
+		trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {}, path: "/test"}}
+		command: {name: "TestCmd", fields: {}, query: {items: []}}
+		emits: [events.EventA]
+		scenarios: []
+	}]
+}
+`
+	assertInvalid(t, src, "_chapterValid")
+}

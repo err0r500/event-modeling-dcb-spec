@@ -3,10 +3,11 @@ package examples
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
 RemoveItem: em.#ChangeSlice & {
-	name:  "RemoveItem"
-	actor: _actors.User
-
-    image: "./mockups/one_item_cart.png"
+	name:    "RemoveItem"
+	actor:   _actors.User
+	context: "Cart"
+	chapter: "BrowseAndFill"
+	image:   "./mockups/one_item_cart.png"
 
 	trigger: em.#EndpointTrigger & {
 		endpoint: {
