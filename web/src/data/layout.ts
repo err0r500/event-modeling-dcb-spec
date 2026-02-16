@@ -140,6 +140,12 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     }
   }
 
+  // Use uniform column width (max of all)
+  const uniformWidth = Math.max(...columnWidths);
+  for (let i = 0; i < columnWidths.length; i++) {
+    columnWidths[i] = uniformWidth;
+  }
+
   // Calculate column X positions
   const columnX: number[] = [];
   let x = SWIMLANE_PADDING;
@@ -177,6 +183,7 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
       height: CHAPTER_LANE_HEIGHT,
       label: chapter.name,
       color: COLORS['chapter-lane'],
+      metadata: { flowIndices: chapter.flowIndices },
     });
   }
 
@@ -282,7 +289,7 @@ function addStory(
 
   // Story card in command lane
   objects.push({
-    id: `story-${entry.name}`,
+    id: `story-${colIndex}`,
     type: 'story',
     x,
     y: commandY,

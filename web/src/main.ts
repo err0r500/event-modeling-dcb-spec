@@ -1,5 +1,5 @@
 import type { CanvasObject, Viewport, BoardManifest, ContextEntry } from './data/types';
-import { loadBoard, watchBoard } from './data/loader';
+import { loadBoard, watchBoard, BOARD_PATH } from './data/loader';
 import type { LoadedBoard } from './data/loader';
 import { layoutBoard, LayoutOptions } from './data/layout';
 import { SpatialIndex } from './data/SpatialIndex';
@@ -13,6 +13,8 @@ const status = document.getElementById('status') as HTMLDivElement;
 const info = document.getElementById('info') as HTMLDivElement;
 const sidebar = document.getElementById('sidebar') as HTMLDivElement;
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement;
+const imageModal = document.getElementById('image-modal') as HTMLDivElement;
+const modalImage = document.getElementById('modal-image') as HTMLImageElement;
 
 const viewport: Viewport = {
     x: -20,
@@ -165,13 +167,24 @@ function rebuildWithHidden(): void {
     objects = originalObjects
         .filter(o => o.sliceIndex === undefined || !hiddenSlices.has(o.sliceIndex))
         .map(o => {
+            if (o.type === 'chapter-lane' && o.metadata?.flowIndices) {
+                // Recalculate chapter bounds from visible slices
+                const flowIndices = o.metadata.flowIndices as number[];
+                const visibleIndices = flowIndices.filter(fi => !hiddenSlices.has(fi));
+                if (visibleIndices.length === 0) return null; // hide empty chapters
+                const firstX = newSliceX.get(Math.min(...visibleIndices))!;
+                const lastIdx = Math.max(...visibleIndices);
+                const lastX = newSliceX.get(lastIdx)! + sliceWidths.get(lastIdx)! - 30; // subtract padding
+                return { ...o, x: firstX, width: lastX - firstX };
+            }
             if (o.sliceIndex === undefined) {
                 // Swimlanes: adjust X and width
                 return { ...o, x: minNewX - 180, width: newTotalWidth };
             }
             const shift = xShift.get(o.sliceIndex) || 0;
             return { ...o, x: o.x + shift };
-        });
+        })
+        .filter(Boolean) as CanvasObject[];
 
     index.load(objects);
     buildEventTypeMappings(objects);
@@ -214,10 +227,21 @@ function toggleHiddenSlices(): void {
 }
 
 function resize(): void {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    viewport.width = canvas.width;
-    viewport.height = canvas.height;
+    const dpr = Math.max(2, window.devicePixelRatio || 1);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Set display size (CSS)
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    // Set actual buffer size (scaled for DPI)
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+
+    viewport.width = width;
+    viewport.height = height;
+    renderer?.setDPR(dpr);
     renderer?.markDirty();
 }
 
@@ -374,6 +398,16 @@ function hideTooltip(): void {
     tooltip.style.display = 'none';
 }
 
+function showImageModal(src: string): void {
+    modalImage.src = src;
+    imageModal.style.display = 'flex';
+}
+
+function hideImageModal(): void {
+    imageModal.style.display = 'none';
+    modalImage.src = '';
+}
+
 // Tree sidebar state
 let expandedContexts: Set<string> = new Set();
 let expandedChapters: Set<string> = new Set();
@@ -523,8 +557,9 @@ function navigateToSlice(_flowIdx: number, sliceName: string): void {
     // Find the slice-name object
     const target = objects.find(o => o.type === 'slice-name' && o.label === sliceName);
     if (target) {
-        // Center viewport on target
-        viewport.x = target.x + target.width / 2 - viewport.width / viewport.zoom / 2;
+        // Reset zoom and center viewport on target
+        viewport.zoom = 1;
+        viewport.x = target.x + target.width / 2 - viewport.width / 2;
         viewport.y = target.y - 50;
 
         // Find command or read-model and apply highlighting
@@ -589,7 +624,15 @@ async function init(): Promise<void> {
         sidebarToggle.textContent = sidebar.classList.contains('open') ? '✕ Close' : '☰ Tree';
     });
 
+    // Image modal close handlers
+    imageModal.addEventListener('click', hideImageModal);
+
     window.addEventListener('keydown', (e) => {
+        // Close image modal with Escape
+        if (e.key === 'Escape' && imageModal.style.display === 'flex') {
+            hideImageModal();
+            return;
+        }
         // Toggle sidebar with 't'
         if (e.key === 't') {
             sidebar.classList.toggle('open');
@@ -612,6 +655,7 @@ async function init(): Promise<void> {
     });
 
     renderer = new Renderer(canvas, index, viewport);
+    resize(); // Re-run to set DPR now that renderer exists
 
     new InputHandler(canvas, viewport, () => {
         renderer.markDirty();
@@ -630,14 +674,20 @@ async function init(): Promise<void> {
             hideTooltip();
         }
     }, (obj) => {
+        // Click handler - mockup images open modal
+        if (obj?.type === 'mockup' && obj.metadata?.src) {
+            showImageModal(`${BOARD_PATH}/${obj.metadata.src}`);
+            return;
+        }
         // Click handler - focus on referenced slice for stories
         if (obj?.type === 'story' && obj.metadata?.sliceRef) {
             const sliceRef = obj.metadata.sliceRef as string;
             // Find the slice-name object for the referenced slice
             const target = objects.find(o => o.type === 'slice-name' && o.label === sliceRef);
             if (target) {
-                // Center viewport on target
-                viewport.x = target.x + target.width / 2 - viewport.width / viewport.zoom / 2;
+                // Reset zoom and center viewport on target
+                viewport.zoom = 1;
+                viewport.x = target.x + target.width / 2 - viewport.width / 2;
                 viewport.y = target.y - 50;
 
                 // Find command or read-model for the slice and apply highlighting

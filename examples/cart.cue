@@ -5,14 +5,14 @@ import "github.com/err0r500/event-modeling-dcb-spec/em"
 // Package-level definitions for use in separate files
 _tags: [Name=string]: em.#Tag & {name: Name}
 _tags: {
-	item_id:    {param: "itemId", type: int}
-	cart_id:    {param: "cartId", type: string}
+	item_id: {param: "itemId", type: int}
+	cart_id: {param: "cartId", type: string}
 	product_id: {param: "productId", type: string}
 }
 
 _actors: [Name=string]: em.#Actor & {name: Name}
 _actors: {
-	User:              {}
+	User: {}
 	InventoryEventBus: {}
 }
 
@@ -25,7 +25,7 @@ cartBoard: em.#Board & {
 	contexts: [
 		{
 			name:        "Shopping"
-			description: "Shopping cart management — add, remove, clear items"
+			description: "Shopping cart context"
 			chapters: [
 				{
 					name:        "Cart Items"
@@ -34,6 +34,9 @@ cartBoard: em.#Board & {
 						AddItem,
 						ViewOneItemCart,
 						RemoveItem,
+						ViewEmptyCart,
+						AddOneItemCartStory,
+						ViewOneItemCart,
 						ClearCart,
 						ViewCartItems,
 					]
@@ -43,7 +46,7 @@ cartBoard: em.#Board & {
 					description: "Customer reviews cart contents before checkout"
 					flow: [
 						ChangeInventory,
-                        ViewProductsInventories,
+						ViewProductsInventories,
 					]
 				},
 				{
@@ -54,6 +57,9 @@ cartBoard: em.#Board & {
 					]
 				},
 			]
+		},
+		{
+			name: "other context"
 		},
 	]
 }

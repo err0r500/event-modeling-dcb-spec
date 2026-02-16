@@ -12,6 +12,7 @@ export class Renderer {
     private rafId: number | null = null;
     private imageCache: Map<string, HTMLImageElement> = new Map();
     private loadingImages: Set<string> = new Set();
+    private dpr = Math.max(2, window.devicePixelRatio || 1);
 
     constructor(
         canvas: HTMLCanvasElement,
@@ -37,6 +38,10 @@ export class Renderer {
 
     markDirty(): void {
         this.isDirty = true;
+    }
+
+    setDPR(dpr: number): void {
+        this.dpr = dpr;
     }
 
     start(): void {
@@ -82,13 +87,15 @@ export class Renderer {
         const ctx = this.ctx;
         const { x, y, zoom, width, height } = this.viewport;
 
-        ctx.clearRect(0, 0, width, height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, width * this.dpr, height * this.dpr);
 
         // Background
         ctx.fillStyle = '#1e1e2e';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, width * this.dpr, height * this.dpr);
 
         ctx.save();
+        ctx.scale(this.dpr, this.dpr);
         ctx.scale(zoom, zoom);
         ctx.translate(-x, -y);
 
@@ -349,10 +356,16 @@ export class Renderer {
 
     private drawInstancePanel(obj: CanvasObject, instance: Record<string, unknown>): void {
         const ctx = this.ctx;
+        const isDimmed = this.highlightSet !== null && !this.highlightSet.has(obj.id);
+
+        if (isDimmed) {
+            ctx.globalAlpha = 0.2;
+        }
+
         const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+        const baseFontSize = Math.min(13, obj.width / 10);
         const lineHeight = 18 / zoomFactor;
         const padding = 10 / zoomFactor;
-        const fontSize = 13 / zoomFactor;
         const gap = 6 / this.viewport.zoom;
 
         // Format instance lines
@@ -368,7 +381,7 @@ export class Renderer {
         }
 
         // Measure panel size
-        ctx.font = `400 ${fontSize}px monospace`;
+        ctx.font = `400 ${baseFontSize / zoomFactor}px monospace`;
         let maxWidth = 0;
         for (const line of flatLines) {
             maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
@@ -394,6 +407,10 @@ export class Renderer {
         ctx.textBaseline = 'top';
         for (let i = 0; i < flatLines.length; i++) {
             ctx.fillText(flatLines[i], panelX + padding, panelY + padding + i * lineHeight);
+        }
+
+        if (isDimmed) {
+            ctx.globalAlpha = 1.0;
         }
     }
 
