@@ -24,48 +24,30 @@ cartBoard: em.#Board & {
 
 	contexts: [
 		{
-			name:        "Cart"
+			name:        "Shopping"
 			description: "Shopping cart management — add, remove, clear items"
 			chapters: [
 				{
-					name:        "BrowseAndFill"
+					name:        "Cart Items"
 					description: "Customer browses products and fills their cart"
 					flow: [
 						AddItem,
 						ViewEmptyCart,
 						RemoveItem,
 						ClearCart,
+						ViewCartItems,
 					]
 				},
 				{
-					name:        "Review"
+					name:        "Inventory"
 					description: "Customer reviews cart contents before checkout"
 					flow: [
-						ViewCart,
-					]
-				},
-			]
-		},
-		{
-			name:        "Inventory"
-			description: "Product inventory tracking and availability"
-			chapters: [
-				{
-					name:        "BrowseAndFill"
-					description: "Customer browses products — inventory side"
-					flow: [
 						ChangeInventory,
-						ViewProductsInventories,
+                        ViewProductsInventories,
 					]
 				},
-			]
-		},
-		{
-			name:        "Checkout"
-			description: "Cart submission and order finalization"
-			chapters: [
 				{
-					name:        "Submit"
+					name:        "Submit Cart"
 					description: "Customer submits the cart to place an order"
 					flow: [
 						SubmitCart,

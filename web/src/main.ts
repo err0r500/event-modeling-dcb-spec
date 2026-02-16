@@ -1,6 +1,7 @@
-import type { CanvasObject, Viewport } from './data/types';
+import type { CanvasObject, Viewport, BoardManifest, ContextEntry } from './data/types';
 import { loadBoard, watchBoard } from './data/loader';
-import { layoutBoard } from './data/layout';
+import type { LoadedBoard } from './data/loader';
+import { layoutBoard, LayoutOptions } from './data/layout';
 import { SpatialIndex } from './data/SpatialIndex';
 import { Renderer } from './canvas/Renderer';
 import { InputHandler } from './canvas/InputHandler';
@@ -10,6 +11,8 @@ const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const tooltip = document.getElementById('tooltip') as HTMLDivElement;
 const status = document.getElementById('status') as HTMLDivElement;
 const info = document.getElementById('info') as HTMLDivElement;
+const sidebar = document.getElementById('sidebar') as HTMLDivElement;
+const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement;
 
 const viewport: Viewport = {
     x: -20,
@@ -371,6 +374,175 @@ function hideTooltip(): void {
     tooltip.style.display = 'none';
 }
 
+// Tree sidebar state
+let expandedContexts: Set<string> = new Set();
+let expandedChapters: Set<string> = new Set();
+let selectedSliceIndex: number | null = null;
+
+// Context selection state
+let selectedContext: string | null = null;
+let currentBoard: LoadedBoard | null = null;
+
+function getLayoutOptions(manifest: BoardManifest): LayoutOptions | undefined {
+    if (!manifest.contexts || manifest.contexts.length === 0) return undefined;
+
+    // Get selected context (default to first)
+    const ctx = manifest.contexts.find(c => c.name === selectedContext) || manifest.contexts[0];
+    if (!ctx) return undefined;
+
+    // Collect all flow indices from this context's chapters
+    const flowIndices = new Set<number>();
+    for (const chap of ctx.chapters) {
+        for (const fi of chap.flowIndices) {
+            flowIndices.add(fi);
+        }
+    }
+
+    return {
+        flowIndices,
+        chapters: ctx.chapters,
+    };
+}
+
+function rebuildLayout(): void {
+    if (!currentBoard) return;
+
+    const options = getLayoutOptions(currentBoard.manifest);
+    originalObjects = layoutBoard(currentBoard, options);
+    computeSliceWidths();
+    hiddenSlices.clear();
+    objects = originalObjects;
+    index.load(objects);
+    buildEventTypeMappings(objects);
+    renderer?.markDirty();
+    updateInfo();
+}
+
+function buildTree(manifest: BoardManifest): void {
+    sidebar.innerHTML = '';
+
+    if (!manifest.contexts || manifest.contexts.length === 0) {
+        sidebar.innerHTML = '<div style="padding: 12px; color: #6c7086;">No contexts defined</div>';
+        return;
+    }
+
+    // Context tabs at top
+    if (manifest.contexts.length > 1) {
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'context-tabs';
+        for (const ctx of manifest.contexts) {
+            const tab = document.createElement('button');
+            tab.className = 'context-tab';
+            if (ctx.name === selectedContext) {
+                tab.classList.add('active');
+            }
+            tab.textContent = ctx.name;
+            tab.onclick = () => {
+                selectedContext = ctx.name;
+                rebuildLayout();
+                buildTree(manifest);
+            };
+            tabsContainer.appendChild(tab);
+        }
+        sidebar.appendChild(tabsContainer);
+    }
+
+    // Find selected context
+    const ctx = manifest.contexts.find(c => c.name === selectedContext) || manifest.contexts[0];
+    if (!ctx) return;
+
+    // Show context description if present
+    if (ctx.description) {
+        const descEl = document.createElement('div');
+        descEl.className = 'context-description';
+        descEl.textContent = ctx.description;
+        sidebar.appendChild(descEl);
+    }
+
+    // Chapters for selected context
+    for (const chap of ctx.chapters) {
+        const chapId = `${ctx.name}-${chap.name}`;
+        const chapWrapper = document.createElement('div');
+        chapWrapper.className = 'tree-chapter-wrapper';
+        if (!expandedChapters.has(chapId)) {
+            chapWrapper.classList.add('tree-collapsed');
+        }
+
+        const chapNode = document.createElement('div');
+        chapNode.className = 'tree-node tree-chapter';
+        chapNode.innerHTML = `<span class="tree-icon">${expandedChapters.has(chapId) ? '▼' : '▶'}</span>${chap.name}`;
+        chapNode.onclick = (e) => {
+            e.stopPropagation();
+            if (expandedChapters.has(chapId)) {
+                expandedChapters.delete(chapId);
+            } else {
+                expandedChapters.add(chapId);
+            }
+            buildTree(manifest);
+        };
+        chapWrapper.appendChild(chapNode);
+
+        const chapChildren = document.createElement('div');
+        chapChildren.className = 'tree-children';
+
+        for (const flowIdx of chap.flowIndices) {
+            const entry = manifest.flow[flowIdx];
+            if (!entry) continue;
+
+            const sliceNode = document.createElement('div');
+            sliceNode.className = 'tree-node tree-slice';
+            if (selectedSliceIndex === flowIdx) {
+                sliceNode.classList.add('selected');
+            }
+
+            let badge = '';
+            if (entry.kind === 'slice') {
+                if (entry.type === 'change') {
+                    badge = '<span class="type-badge cmd">CMD</span>';
+                } else if (entry.type === 'view') {
+                    badge = '<span class="type-badge view">VIEW</span>';
+                }
+            }
+
+            sliceNode.innerHTML = `${badge}${entry.name}`;
+            sliceNode.onclick = (e) => {
+                e.stopPropagation();
+                selectedSliceIndex = flowIdx;
+                navigateToSlice(flowIdx, entry.name);
+                buildTree(manifest);
+            };
+            chapChildren.appendChild(sliceNode);
+        }
+
+        chapWrapper.appendChild(chapChildren);
+        sidebar.appendChild(chapWrapper);
+    }
+}
+
+function navigateToSlice(_flowIdx: number, sliceName: string): void {
+    // Find the slice-name object
+    const target = objects.find(o => o.type === 'slice-name' && o.label === sliceName);
+    if (target) {
+        // Center viewport on target
+        viewport.x = target.x + target.width / 2 - viewport.width / viewport.zoom / 2;
+        viewport.y = target.y - 50;
+
+        // Find command or read-model and apply highlighting
+        const sliceObj = objects.find(o =>
+            (o.type === 'command' || o.type === 'read-model') &&
+            o.sliceIndex === target.sliceIndex
+        );
+        if (sliceObj) {
+            const highlightIds = computeHighlightSet(sliceObj);
+            currentHighlightSet = highlightIds ? new Set(highlightIds) : null;
+            renderer.setHighlightSet(highlightIds);
+        }
+
+        renderer.markDirty();
+        updateInfo();
+    }
+}
+
 function applyBoard(board: Awaited<ReturnType<typeof loadBoard>>, isReload = false): void {
     if (board.error) {
         status.textContent = `Error: ${board.error}`;
@@ -382,7 +554,15 @@ function applyBoard(board: Awaited<ReturnType<typeof loadBoard>>, isReload = fal
     status.style.color = '';
     status.style.fontSize = '';
 
-    originalObjects = layoutBoard(board);
+    currentBoard = board;
+
+    // Default to first context if not set
+    if (!selectedContext && board.manifest.contexts && board.manifest.contexts.length > 0) {
+        selectedContext = board.manifest.contexts[0].name;
+    }
+
+    const options = getLayoutOptions(board.manifest);
+    originalObjects = layoutBoard(board, options);
     computeSliceWidths();
     hiddenSlices.clear();
     objects = originalObjects;
@@ -392,6 +572,7 @@ function applyBoard(board: Awaited<ReturnType<typeof loadBoard>>, isReload = fal
 
     status.textContent = `${board.manifest.name}${isReload ? ' — reloaded' : ''} — ${objects.length} objects`;
     updateInfo();
+    buildTree(board.manifest);
 }
 
 async function init(): Promise<void> {
@@ -401,7 +582,20 @@ async function init(): Promise<void> {
         mouseX = e.clientX;
         mouseY = e.clientY;
     });
+
+    // Sidebar toggle
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        sidebarToggle.textContent = sidebar.classList.contains('open') ? '✕ Close' : '☰ Tree';
+    });
+
     window.addEventListener('keydown', (e) => {
+        // Toggle sidebar with 't'
+        if (e.key === 't') {
+            sidebar.classList.toggle('open');
+            sidebarToggle.textContent = sidebar.classList.contains('open') ? '✕ Close' : '☰ Tree';
+            return;
+        }
         if (e.key === ' ') {
             hideTooltip();
             if (hiddenSlices.size > 0) {

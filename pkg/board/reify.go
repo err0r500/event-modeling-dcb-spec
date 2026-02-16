@@ -22,9 +22,24 @@ func ReifyBoard(b *Board) map[string]any {
 
 // BoardManifest is the top-level manifest written to board.json.
 type BoardManifest struct {
-	Name   string      `json:"name"`
-	Flow   []FlowEntry `json:"flow"`
-	Errors []string    `json:"errors,omitempty"`
+	Name     string         `json:"name"`
+	Contexts []ContextEntry `json:"contexts"`
+	Flow     []FlowEntry    `json:"flow"`
+	Errors   []string       `json:"errors,omitempty"`
+}
+
+// ContextEntry represents a bounded context containing chapters.
+type ContextEntry struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Chapters    []ChapterEntry `json:"chapters"`
+}
+
+// ChapterEntry represents a narrative chapter containing flow item references.
+type ChapterEntry struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	FlowIndices []int  `json:"flowIndices"` // indices into flat Flow array
 }
 
 // FlowEntry is one entry in the manifest's flow table of contents.
@@ -83,7 +98,59 @@ func ReifyBoardFiles(b *Board, errors []string) (BoardManifest, map[string]map[s
 		manifest.Flow = append(manifest.Flow, entry)
 	}
 
+	// Extract context/chapter hierarchy
+	manifest.Contexts = extractContexts(b.Value)
+
 	return manifest, slices, images
+}
+
+// extractContexts builds the context/chapter hierarchy from the CUE board value.
+func extractContexts(boardVal cue.Value) []ContextEntry {
+	contextsVal := boardVal.LookupPath(cue.ParsePath("contexts"))
+	if contextsVal.Err() != nil {
+		return nil
+	}
+
+	iter, err := contextsVal.List()
+	if err != nil {
+		return nil
+	}
+
+	var contexts []ContextEntry
+	flowIdx := 0 // tracks position in flat flow array
+
+	for iter.Next() {
+		ctxVal := iter.Value()
+		ctx := ContextEntry{
+			Name:        getString(ctxVal, "name"),
+			Description: getString(ctxVal, "description"),
+		}
+
+		chaptersVal := ctxVal.LookupPath(cue.ParsePath("chapters"))
+		if chapIter, err := chaptersVal.List(); err == nil {
+			for chapIter.Next() {
+				chapVal := chapIter.Value()
+				chap := ChapterEntry{
+					Name:        getString(chapVal, "name"),
+					Description: getString(chapVal, "description"),
+				}
+
+				flowVal := chapVal.LookupPath(cue.ParsePath("flow"))
+				if flowIter, err := flowVal.List(); err == nil {
+					for flowIter.Next() {
+						chap.FlowIndices = append(chap.FlowIndices, flowIdx)
+						flowIdx++
+					}
+				}
+
+				ctx.Chapters = append(ctx.Chapters, chap)
+			}
+		}
+
+		contexts = append(contexts, ctx)
+	}
+
+	return contexts
 }
 
 var nonAlnum = regexp.MustCompile(`[^a-zA-Z0-9]+`)

@@ -98,7 +98,7 @@ export async function loadBoard(): Promise<LoadedBoard> {
     if (data.errors?.length || !data.flow) {
         const translatedErrors = (data.errors || ['Invalid board data']).map(translateError);
         return {
-            manifest: { name: 'Error', flow: [] },
+            manifest: { name: 'Error', contexts: [], flow: [] },
             slices: new Map(),
             error: translatedErrors.join('\n'),
         };

@@ -41,12 +41,108 @@
       font-size: 12px;
       text-align: right;
     }
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 280px;
+      height: 100%;
+      background: rgba(30, 30, 46, 0.95);
+      border-right: 1px solid #45475a;
+      overflow-y: auto;
+      z-index: 100;
+      padding: 12px 0;
+      font-size: 13px;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+    }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-toggle {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 101;
+      background: rgba(30, 30, 46, 0.9);
+      border: 1px solid #45475a;
+      border-radius: 4px;
+      color: #cdd6f4;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #sidebar-toggle:hover { background: #45475a; }
+    #sidebar.open ~ #sidebar-toggle { left: 292px; }
+    .tree-node {
+      padding: 4px 12px;
+      cursor: pointer;
+      color: #cdd6f4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-node:hover { background: #313244; }
+    .tree-node.selected { background: #45475a; }
+    .tree-context { font-weight: 600; color: #cba6f7; }
+    .tree-chapter { color: #89b4fa; padding-left: 16px; }
+    .tree-slice { color: #a6adc8; padding-left: 32px; }
+    .tree-slice .type-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-right: 6px;
+      font-weight: 500;
+    }
+    .tree-slice .type-badge.cmd { background: #f9e2af; color: #1e1e2e; }
+    .tree-slice .type-badge.view { background: #a6e3a1; color: #1e1e2e; }
+    .tree-icon { margin-right: 6px; font-size: 10px; }
+    .tree-collapsed .tree-children { display: none; }
+    .tree-description {
+      font-size: 11px;
+      color: #6c7086;
+      padding: 2px 12px 6px 28px;
+    }
+    .context-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #45475a;
+      margin-bottom: 8px;
+    }
+    .context-tab {
+      background: transparent;
+      border: 1px solid #45475a;
+      border-radius: 4px;
+      color: #6c7086;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .context-tab:hover { background: #313244; color: #cdd6f4; }
+    .context-tab.active {
+      background: #45475a;
+      color: #cba6f7;
+      border-color: #cba6f7;
+    }
+    .context-description {
+      font-size: 11px;
+      color: #6c7086;
+      padding: 4px 12px 12px;
+      border-bottom: 1px solid #313244;
+      margin-bottom: 8px;
+    }
+    .tree-chapter { color: #89b4fa; padding-left: 12px; }
+    .tree-slice { padding-left: 28px; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
+  <div id="sidebar"></div>
+  <button id="sidebar-toggle">☰ Tree</button>
   <div id="tooltip"></div>
   <div id="status">Loading...</div>
+  <div id="shortcuts" style="position:fixed;bottom:12px;right:12px;color:#6c7086;font-size:11px;">t: tree | c: focus | space: reset | +/-: zoom</div>
   <div id="info"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
