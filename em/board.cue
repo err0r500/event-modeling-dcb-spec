@@ -11,12 +11,15 @@ import (
 // The board is the top-level container for an event-modeled domain.
 // It defines all entities and their relationships with explicit causality.
 //
+// Structure: Board → Contexts → Chapters → Flow (slices & story steps)
+//
 // Fields:
 //   name: string - board identifier
 //   tags: {[Name]: #Tag} - all tags for DCB partitioning (key becomes tag.name)
 //   events: {[Type]: #Event} - all events (key becomes event.eventType)
 //   actors: {[Name]: #Actor} - all actors (key becomes actor.name)
-//   flow: [...#Instant] - ordered sequence of slices and story steps
+//   contexts: [...#Context] - bounded contexts, each containing ordered chapters
+//   flow: (computed) - flat ordered sequence derived from contexts → chapters → flow
 //
 // Validation (automatic):
 //   - Actors referenced in slices must exist in actors
@@ -37,14 +40,12 @@ import (
 	// All actors
 	actors: [Name=string]: #Actor & {name: Name}
 
-	// Bounded contexts (responsibility boundaries)
-	contexts: [Name=string]: #Context & {name: Name} | *{}
+	// Contexts contain chapters which contain the flow
+	contexts: [...#Context]
 
-	// Narrative chapters (timeline segments)
-	chapters: [Name=string]: #Chapter & {name: Name} | *{}
-
-	// Ordered flow of instants (slices and story steps)
-	flow: [...#Instant]
+	// Computed flat flow from all contexts → chapters → flow
+	_allFlow: [ for ctx in contexts for ch in ctx.chapters for inst in ch.flow {inst}]
+	flow: _allFlow
 
 	// --- HELPERS ---
 
@@ -65,12 +66,6 @@ import (
 
 	// Actor list
 	_actorList: [for k, _ in actors {k}]
-
-	// Context list
-	_contextList: [for k, _ in contexts {k}]
-
-	// Chapter list
-	_chapterList: [for k, _ in chapters {k}]
 
 	// Map: eventType -> list of tag names
 	_eventTagMap: {for k, e in events {(k): [for t in e.tags {t.name}]}}
@@ -104,20 +99,6 @@ import (
 	// Validate slices - actor must be defined
 	for i, inst in flow if inst.kind == "slice" {
 		_actorValid: list.Contains(_actorList, inst.actor.name) & true
-	}
-
-	// Validate slices - context must be defined (if set)
-	for i, inst in flow if inst.kind == "slice" {
-		if inst.context != _|_ {
-			_contextValid: list.Contains(_contextList, inst.context) & true
-		}
-	}
-
-	// Validate slices - chapter must be defined (if set)
-	for i, inst in flow if inst.kind == "slice" {
-		if inst.chapter != _|_ {
-			_chapterValid: list.Contains(_chapterList, inst.chapter) & true
-		}
 	}
 
 	// Validate change slices

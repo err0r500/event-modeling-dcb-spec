@@ -6,10 +6,8 @@ import (
 )
 
 ViewCart: s.#ViewSlice & {
-	name:    "ViewCartItems"
-	actor:   _actors.User
-	context: "Cart"
-	chapter: "Review"
+	name:  "ViewCartItems"
+	actor: _actors.User
 
 	endpoint: s.#Endpoint & {
         verb: "GET"

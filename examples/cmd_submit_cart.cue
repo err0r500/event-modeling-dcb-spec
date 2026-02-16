@@ -3,10 +3,8 @@ package examples
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
 SubmitCart: em.#ChangeSlice & {
-    name:    "SubmitCart"
-    actor:   _actors.User
-    context: "Checkout"
-    chapter: "Submit"
+    name:  "SubmitCart"
+    actor: _actors.User
     trigger: em.#EndpointTrigger & {
         endpoint: {
             verb: "POST"
