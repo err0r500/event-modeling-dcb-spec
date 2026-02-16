@@ -98,13 +98,19 @@ export class Renderer {
         // Get visible objects sorted by type for layering
         const visible = this.index.getVisible(this.viewport);
         const swimlanes = visible.filter(o => o.type === 'swimlane');
+        const chapterLanes = visible.filter(o => o.type === 'chapter-lane');
         const mockups = visible.filter(o => o.type === 'mockup');
         const sliceNames = visible.filter(o => o.type === 'slice-name');
-        const others = visible.filter(o => o.type !== 'swimlane' && o.type !== 'slice-name' && o.type !== 'mockup');
+        const others = visible.filter(o => o.type !== 'swimlane' && o.type !== 'chapter-lane' && o.type !== 'slice-name' && o.type !== 'mockup');
 
         // Swimlanes first (background)
         for (const obj of swimlanes) {
             this.drawSwimlane(obj);
+        }
+
+        // Chapter lanes
+        for (const obj of chapterLanes) {
+            this.drawChapterLane(obj);
         }
 
         // Mockups
@@ -180,6 +186,31 @@ export class Renderer {
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(obj.label, obj.x + 10, obj.y + obj.height / 2);
+        }
+    }
+
+    private drawChapterLane(obj: CanvasObject): void {
+        const ctx = this.ctx;
+
+        // Fill background
+        ctx.fillStyle = obj.color;
+        this.roundRect(obj.x, obj.y, obj.width, obj.height, 4);
+        ctx.fill();
+
+        // Border
+        ctx.strokeStyle = '#585b70';
+        ctx.lineWidth = 1 / this.viewport.zoom;
+        this.roundRect(obj.x, obj.y, obj.width, obj.height, 4);
+        ctx.stroke();
+
+        // Label centered
+        if (this.viewport.zoom > 0.15) {
+            const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+            ctx.fillStyle = '#89b4fa'; // blue color for chapters
+            ctx.font = `600 ${14 / zoomFactor}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(obj.label, obj.x + obj.width / 2, obj.y + obj.height / 2);
         }
     }
 

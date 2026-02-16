@@ -1,8 +1,21 @@
 // Board manifest structure
 export interface BoardManifest {
   name: string;
+  contexts: ContextEntry[];
   flow: FlowEntry[];
   errors?: string[];
+}
+
+export interface ContextEntry {
+  name: string;
+  description?: string;
+  chapters: ChapterEntry[];
+}
+
+export interface ChapterEntry {
+  name: string;
+  description?: string;
+  flowIndices: number[];
 }
 
 export interface FlowEntry {
@@ -113,7 +126,7 @@ export interface ViewScenario {
 }
 
 // Canvas object types
-export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'swimlane' | 'slice-name' | 'scenario' | 'mockup' | 'story';
+export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'swimlane' | 'slice-name' | 'scenario' | 'mockup' | 'story' | 'chapter-lane';
 
 export interface CanvasObject {
   id: string;

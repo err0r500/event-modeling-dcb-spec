@@ -12,8 +12,8 @@ _tags: {
 
 _actors: [Name=string]: em.#Actor & {name: Name}
 _actors: {
-	User: {}
-    InventoryEventBus: {}
+	User:              {}
+	InventoryEventBus: {}
 }
 
 cartBoard: em.#Board & {
@@ -22,14 +22,38 @@ cartBoard: em.#Board & {
 	events: _events
 	actors: _actors
 
-	flow: [
-		AddItem,
-        ViewEmptyCart,
-        RemoveItem,
-        ClearCart,
-        ViewCart,
-        ChangeInventory,
-        ViewProductsInventories,
-        SubmitCart
+	contexts: [
+		{
+			name:        "Shopping"
+			description: "Shopping cart management — add, remove, clear items"
+			chapters: [
+				{
+					name:        "Cart Items"
+					description: "Customer browses products and fills their cart"
+					flow: [
+						AddItem,
+						ViewEmptyCart,
+						RemoveItem,
+						ClearCart,
+						ViewCartItems,
+					]
+				},
+				{
+					name:        "Inventory"
+					description: "Customer reviews cart contents before checkout"
+					flow: [
+						ChangeInventory,
+                        ViewProductsInventories,
+					]
+				},
+				{
+					name:        "Submit Cart"
+					description: "Customer submits the cart to place an order"
+					flow: [
+						SubmitCart,
+					]
+				},
+			]
+		},
 	]
 }

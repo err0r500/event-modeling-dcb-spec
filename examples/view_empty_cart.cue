@@ -5,8 +5,8 @@ import "github.com/err0r500/event-modeling-dcb-spec/em"
 ViewEmptyCart: em.#StoryStep & {
 	kind:  "story"
 	name:  "view empty cart"
-	slice: ViewCart
-	instance: ViewCart.readModel.fields & {
+	slice: ViewCartItems
+	instance: ViewCartItems.readModel.fields & {
 		cartId: "cart-abc"
 		items: [
 			{

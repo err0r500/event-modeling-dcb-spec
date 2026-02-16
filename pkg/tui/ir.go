@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,50 +26,6 @@ const (
 	detailMode
 	errorMode
 )
-
-// tableRow holds row data + original index
-type tableRow struct {
-	index      int
-	row        table.Row
-	searchable string
-}
-
-const typeColWidth = 8
-const statusColWidth = 12
-
-func makeColumns(totalWidth int) []table.Column {
-	available := totalWidth - 2
-	if available < 30 {
-		available = 30
-	}
-	remaining := available - typeColWidth - statusColWidth
-	nameW := remaining * 2 / 8
-	consumesW := remaining * 3 / 8
-	emitsW := remaining - nameW - consumesW
-	return []table.Column{
-		{Title: "Type", Width: typeColWidth},
-		{Title: "Name", Width: nameW},
-		{Title: "Status", Width: statusColWidth},
-		{Title: "Consumes", Width: consumesW},
-		{Title: "Emits", Width: emitsW},
-	}
-}
-
-func extractRows(rows []tableRow) []table.Row {
-	out := make([]table.Row, len(rows))
-	for i, r := range rows {
-		out[i] = r.row
-	}
-	return out
-}
-
-func makeIndices(rows []tableRow) []int {
-	out := make([]int, len(rows))
-	for i, r := range rows {
-		out[i] = r.index
-	}
-	return out
-}
 
 // irReloadedMsg is sent when the IR directory watcher detects a change.
 type irReloadedMsg struct {
@@ -94,16 +49,13 @@ type IRModel struct {
 	currentFile    string // file currently being viewed in detailMode
 	waitingForFile string // file path we're waiting to appear (empty if not waiting)
 	width          int
-	height       int
-	viewport     viewport.Model
-	ready        bool
-	table        table.Model
-	reloadErr    string
+	height         int
+	viewport       viewport.Model
+	ready          bool
+	tree           *TreeState
+	reloadErr      string
 
-	searchInput  textinput.Model
-	allRows      []tableRow
-	filteredRows []tableRow
-	filterIndices []int
+	searchInput textinput.Model
 }
 
 // NewIRModel creates a TUI model from an IR directory.
@@ -113,40 +65,19 @@ func NewIRModel(dir string) (IRModel, error) {
 		return IRModel{}, err
 	}
 
-	allRows := makeTableRowsFromIR(manifest, slices)
-
-	t := table.New(
-		table.WithColumns(makeColumns(80)),
-		table.WithRows(extractRows(allRows)),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(true)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
+	tree := NewTreeState(manifest, slices)
 
 	ti := textinput.New()
 	ti.Prompt = "/ "
 	ti.CharLimit = 64
 
 	m := IRModel{
-		irDir:         dir,
-		manifest:      manifest,
-		slices:        slices,
-		mode:          boardMode,
-		table:         t,
-		searchInput:   ti,
-		allRows:       allRows,
-		filteredRows:  allRows,
-		filterIndices: makeIndices(allRows),
+		irDir:       dir,
+		manifest:    manifest,
+		slices:      slices,
+		mode:        boardMode,
+		tree:        tree,
+		searchInput: ti,
 	}
 	// Show manifest errors on initial load
 	if len(manifest.Errors) > 0 {
@@ -222,7 +153,7 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.manifest = msg.manifest
 		m.slices = msg.slices
-		m.allRows = makeTableRowsFromIR(m.manifest, m.slices)
+		m.tree = NewTreeState(m.manifest, m.slices)
 		// Show manifest-level errors
 		if len(m.manifest.Errors) > 0 {
 			m.reloadErr = strings.Join(m.manifest.Errors, "\n")
@@ -258,7 +189,6 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.previousFile = ""
 			}
 		}
-		m.applyFilter()
 		// Check if we're waiting for a file to appear
 		if m.waitingForFile != "" {
 			if data, ok := m.slices[m.waitingForFile]; ok {
@@ -292,8 +222,7 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err == nil && slices[m.waitingForFile] != nil {
 				m.manifest = manifest
 				m.slices = slices
-				m.allRows = makeTableRowsFromIR(m.manifest, m.slices)
-				m.applyFilter()
+				m.tree = NewTreeState(m.manifest, m.slices)
 				m.mode = detailMode
 				m.currentFile = m.waitingForFile
 				output, _ := render.RenderSliceIR(slices[m.waitingForFile], m.width)
@@ -308,8 +237,6 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.table.SetColumns(makeColumns(msg.Width))
-		m.table.SetHeight(msg.Height - 5)
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width, msg.Height-2)
 			m.ready = true
@@ -331,7 +258,6 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.mode = boardMode
 				m.searchInput.SetValue("")
-				m.applyFilter()
 				return m, nil
 			case "enter":
 				m.mode = boardMode
@@ -339,7 +265,6 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				var cmd tea.Cmd
 				m.searchInput, cmd = m.searchInput.Update(msg)
-				m.applyFilter()
 				return m, cmd
 			}
 		}
@@ -367,11 +292,6 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mode = boardMode
 				return m, nil
 			}
-			if m.searchInput.Value() != "" {
-				m.searchInput.SetValue("")
-				m.applyFilter()
-				return m, nil
-			}
 		case "/":
 			if m.mode == boardMode {
 				m.mode = searchMode
@@ -386,20 +306,45 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoTop()
 				return m, nil
 			}
-		case "enter":
+
+		// Tree navigation
+		case "j", "down":
 			if m.mode == boardMode {
-				file := m.selectedSliceFile()
-				if data := m.slices[file]; data != nil {
-					m.mode = detailMode
-					m.currentFile = file
-					output, err := render.RenderSliceIR(data, m.width)
-					if err != nil {
-						m.viewport.SetContent(fmt.Sprintf("Error rendering: %v", err))
-					} else {
-						m.viewport.SetContent(output)
+				m.tree.MoveDown()
+				return m, nil
+			}
+		case "k", "up":
+			if m.mode == boardMode {
+				m.tree.MoveUp()
+				return m, nil
+			}
+		case "enter", "l":
+			if m.mode == boardMode {
+				if m.tree.Expand() {
+					// It was a slice - open detail view
+					file := m.selectedSliceFile()
+					if data := m.slices[file]; data != nil {
+						m.mode = detailMode
+						m.currentFile = file
+						output, err := render.RenderSliceIR(data, m.width)
+						if err != nil {
+							m.viewport.SetContent(fmt.Sprintf("Error rendering: %v", err))
+						} else {
+							m.viewport.SetContent(output)
+						}
+						m.viewport.GotoTop()
 					}
-					m.viewport.GotoTop()
 				}
+				return m, nil
+			}
+		case "h":
+			if m.mode == boardMode {
+				m.tree.Collapse()
+				return m, nil
+			}
+		case " ":
+			if m.mode == boardMode {
+				m.tree.Toggle()
 				return m, nil
 			}
 		}
@@ -409,47 +354,14 @@ func (m IRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
 		}
-
-		var cmd tea.Cmd
-		m.table, cmd = m.table.Update(msg)
-		return m, cmd
 	}
 
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
-}
-
-func (m *IRModel) applyFilter() {
-	query := strings.ToLower(m.searchInput.Value())
-	if query == "" {
-		m.filteredRows = m.allRows
-	} else {
-		m.filteredRows = nil
-		for _, r := range m.allRows {
-			if strings.Contains(r.searchable, query) {
-				m.filteredRows = append(m.filteredRows, r)
-			}
-		}
-	}
-	m.filterIndices = makeIndices(m.filteredRows)
-	m.table.SetRows(extractRows(m.filteredRows))
-	if m.table.Cursor() >= len(m.filteredRows) {
-		m.table.SetCursor(max(0, len(m.filteredRows)-1))
-	}
-}
-
-func (m IRModel) selectedFlowIndex() int {
-	cursor := m.table.Cursor()
-	if cursor < 0 || cursor >= len(m.filterIndices) {
-		return -1
-	}
-	return m.filterIndices[cursor]
+	return m, nil
 }
 
 // selectedSliceFile returns the file path for the currently selected row.
 func (m IRModel) selectedSliceFile() string {
-	idx := m.selectedFlowIndex()
+	idx := m.tree.CurrentFlowIndex()
 	if idx < 0 || idx >= len(m.manifest.Flow) {
 		return ""
 	}
@@ -482,10 +394,9 @@ func (m IRModel) View() string {
 }
 
 func (m IRModel) renderDetailView() string {
-	idx := m.selectedFlowIndex()
 	name := ""
-	if idx >= 0 && idx < len(m.manifest.Flow) {
-		name = m.manifest.Flow[idx].Name
+	if node := m.tree.Current(); node != nil {
+		name = node.Name
 	}
 
 	header := titleStyle.
@@ -519,14 +430,15 @@ func (m IRModel) renderErrorView() string {
 func (m IRModel) renderBoardView() string {
 	var s strings.Builder
 
-	if m.mode == searchMode {
-		s.WriteString(m.searchInput.View() + "\n")
-	} else if m.searchInput.Value() != "" {
-		s.WriteString(footerStyle.Render("filter: "+m.searchInput.Value()) + "\n")
-	}
+	// Header
+	header := titleStyle.Width(m.width).Render(fmt.Sprintf(" %s ", m.manifest.Name))
+	s.WriteString(header + "\n\n")
 
-	s.WriteString(baseStyle.Render(m.table.View()) + "\n")
+	// Tree view
+	s.WriteString(m.renderTree())
 
+	// Footer with keybindings
+	s.WriteString("\n")
 	if m.waitingForFile != "" {
 		s.WriteString(footerStyle.Render("waiting for "+m.waitingForFile+"... [esc: cancel]") + "\n")
 	} else if m.reloadErr != "" {
@@ -536,8 +448,89 @@ func (m IRModel) renderBoardView() string {
 		}
 		s.WriteString(errorStyle.Render("error: "+errMsg+" [e: details]") + "\n")
 	}
+	s.WriteString(footerStyle.Render(" j/k: nav  enter/l: expand/open  h: collapse  space: toggle  q: quit"))
 
 	return s.String()
+}
+
+// renderTree renders the tree view.
+func (m IRModel) renderTree() string {
+	var lines []string
+	visibleHeight := m.height - 6 // account for header + footer
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
+	// Calculate visible window
+	start := 0
+	if m.tree.Cursor >= visibleHeight {
+		start = m.tree.Cursor - visibleHeight + 1
+	}
+	end := start + visibleHeight
+	if end > len(m.tree.FlatView) {
+		end = len(m.tree.FlatView)
+	}
+
+	for i := start; i < end; i++ {
+		node := m.tree.FlatView[i]
+		isCursor := i == m.tree.Cursor
+
+		// Build line: indent + icon + name + extras
+		var line strings.Builder
+
+		// Indent
+		for j := 0; j < node.Depth; j++ {
+			line.WriteString(treeIndent)
+		}
+
+		// Expand icon
+		if len(node.Children) > 0 {
+			if m.tree.Expanded[node] {
+				line.WriteString(treeExpandedIcon)
+			} else {
+				line.WriteString(treeCollapsedIcon)
+			}
+		} else {
+			line.WriteString(treeLeafIcon)
+		}
+
+		// Name with type prefix for slices
+		name := node.Name
+		switch node.Kind {
+		case NodeSlice:
+			prefix := ""
+			if node.SliceType == "change" {
+				prefix = "[CMD] "
+			} else if node.SliceType == "view" {
+				prefix = "[VIEW] "
+			}
+			name = prefix + name
+			if node.DevStatus != "" {
+				name += " (" + node.DevStatus + ")"
+			}
+		}
+		line.WriteString(name)
+
+		// Apply styling
+		lineStr := line.String()
+		var styled string
+		if isCursor {
+			styled = treeCursorStyle.Width(m.width).Render(lineStr)
+		} else {
+			switch node.Kind {
+			case NodeContext:
+				styled = treeContextStyle.Render(lineStr)
+			case NodeChapter:
+				styled = treeChapterStyle.Render(lineStr)
+			default:
+				styled = treeSliceStyle.Render(lineStr)
+			}
+		}
+
+		lines = append(lines, styled)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // --- IR data helpers ---
@@ -573,91 +566,3 @@ func loadIRDir(dir string) (*board.BoardManifest, map[string]map[string]any, err
 	return &manifest, slices, nil
 }
 
-func makeTableRowsFromIR(manifest *board.BoardManifest, slices map[string]map[string]any) []tableRow {
-	rows := make([]tableRow, len(manifest.Flow))
-	for i, entry := range manifest.Flow {
-		var consumed, emitted []string
-		var devstatus string
-		if data, ok := slices[entry.File]; ok {
-			consumed = extractConsumedIR(data, entry.Type)
-			emitted = extractEmittedIR(data)
-			devstatus, _ = data["devstatus"].(string)
-		}
-
-		name := entry.Name
-		if entry.Kind == "story" {
-			name = "(" + entry.SliceRef + ")"
-		}
-
-		searchParts := []string{strings.ToLower(name)}
-		for _, e := range consumed {
-			searchParts = append(searchParts, strings.ToLower(e))
-		}
-		for _, e := range emitted {
-			searchParts = append(searchParts, strings.ToLower(e))
-		}
-
-		typeStr := ""
-		switch {
-		case entry.Kind == "slice" && entry.Type == "change":
-			typeStr = "CMD"
-		case entry.Kind == "slice" && entry.Type == "view":
-			typeStr = "VIEW"
-		}
-
-		rows[i] = tableRow{
-			index: i,
-			row: table.Row{
-				typeStr,
-				name,
-				devstatus,
-				strings.Join(consumed, ", "),
-				strings.Join(emitted, ", "),
-			},
-			searchable: strings.Join(searchParts, " "),
-		}
-	}
-	return rows
-}
-
-func extractConsumedIR(data map[string]any, sliceType string) []string {
-	var queryItems []any
-	if sliceType == "change" {
-		cmd, _ := data["command"].(map[string]any)
-		if cmd != nil {
-			queryItems, _ = cmd["query"].([]any)
-		}
-	} else if sliceType == "view" {
-		queryItems, _ = data["query"].([]any)
-	}
-
-	seen := make(map[string]bool)
-	var names []string
-	for _, qi := range queryItems {
-		m, _ := qi.(map[string]any)
-		types, _ := m["types"].([]any)
-		for _, t := range types {
-			s, _ := t.(string)
-			if s != "" && !seen[s] {
-				seen[s] = true
-				names = append(names, s)
-			}
-		}
-	}
-	return names
-}
-
-func extractEmittedIR(data map[string]any) []string {
-	emits, _ := data["emits"].([]any)
-	seen := make(map[string]bool)
-	var names []string
-	for _, e := range emits {
-		m, _ := e.(map[string]any)
-		et, _ := m["type"].(string)
-		if et != "" && !seen[et] {
-			seen[et] = true
-			names = append(names, et)
-		}
-	}
-	return names
-}

@@ -1,7 +1,13 @@
-import type { CanvasObject, ChangeSlice, ViewSlice, ChangeScenario, ViewScenario, FlowEntry } from './types';
+import type { CanvasObject, ChangeSlice, ViewSlice, ChangeScenario, ViewScenario, FlowEntry, ChapterEntry } from './types';
 import type { LoadedBoard } from './loader';
 
+export interface LayoutOptions {
+  flowIndices?: Set<number>;  // filter to only these indices (from selected context)
+  chapters?: ChapterEntry[];  // chapters with their flow indices for header lanes
+}
+
 const COLORS = {
+  'chapter-lane': '#45475a', // Slightly lighter than swimlane
   command: '#89b4fa',     // Blue
   event: '#fab387',       // Orange/peach
   'read-model': '#94e2d5', // Teal
@@ -68,14 +74,21 @@ function calcScenariosHeight(slice: ChangeSlice | ViewSlice): number {
   return (slice.scenarios?.length || 0) * (SCENARIO_HEIGHT + 5) + 10;
 }
 
-export function layoutBoard(board: LoadedBoard): CanvasObject[] {
+const CHAPTER_LANE_HEIGHT = 40;
+
+export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): CanvasObject[] {
   const objects: CanvasObject[] = [];
   const { manifest, slices } = board;
+  const flowIndices = options?.flowIndices;
+  const chapters = options?.chapters || [];
 
-  // Collect unique actors and check which have images
+  // Collect unique actors and check which have images (only from visible slices)
   const actors = new Set<string>();
   const actorHasImage = new Map<string, boolean>();
-  for (const slice of slices.values()) {
+  for (const [name, slice] of slices.entries()) {
+    // Find if this slice is in visible flow indices
+    const entry = manifest.flow.find(e => e.name === name);
+    if (flowIndices && entry && !flowIndices.has(entry.index)) continue;
     actors.add(slice.actor);
     if (slice.image) {
       actorHasImage.set(slice.actor, true);
@@ -83,17 +96,20 @@ export function layoutBoard(board: LoadedBoard): CanvasObject[] {
   }
   const actorList = Array.from(actors);
 
-  // Calculate max scenarios height
+  // Calculate max scenarios height (only from visible slices)
   let maxScenariosHeight = LANE_HEIGHT;
-  for (const slice of slices.values()) {
+  for (const [name, slice] of slices.entries()) {
+    const entry = manifest.flow.find(e => e.name === name);
+    if (flowIndices && entry && !flowIndices.has(entry.index)) continue;
     maxScenariosHeight = Math.max(maxScenariosHeight, calcScenariosHeight(slice));
   }
 
-  // Calculate Y positions - slice names at top
-  const sliceNameY = 20;
+  // Calculate Y positions - chapter header at very top, then slice names
+  const chapterLaneY = 10;
+  const sliceNameY = chapters.length > 0 ? chapterLaneY + CHAPTER_LANE_HEIGHT + 10 : 20;
   const actorLaneY: Record<string, number> = {};
   const actorLaneHeight: Record<string, number> = {};
-  let currentY = 80;
+  let currentY = sliceNameY + 50;
   for (const actor of actorList) {
     actorLaneY[actor] = currentY;
     const height = actorHasImage.get(actor) ? LANE_HEIGHT_WITH_IMAGE : LANE_HEIGHT;
@@ -106,10 +122,13 @@ export function layoutBoard(board: LoadedBoard): CanvasObject[] {
   currentY += LANE_HEIGHT;
   const scenarioY = currentY;
 
-  // First pass: calculate column widths (slices AND stories)
+  // First pass: calculate column widths (slices AND stories), filtered by flowIndices
   const columnWidths: number[] = [];
   const columnEntries: FlowEntry[] = [];
   for (const entry of manifest.flow) {
+    // Skip if not in selected context
+    if (flowIndices && !flowIndices.has(entry.index)) continue;
+
     if (entry.kind === 'slice' && entry.file) {
       const slice = slices.get(entry.name);
       if (!slice) continue;
@@ -129,6 +148,37 @@ export function layoutBoard(board: LoadedBoard): CanvasObject[] {
     x += w + COLUMN_PADDING;
   }
   const totalWidth = x + SWIMLANE_PADDING;
+
+  // Build column index mapping for chapter lanes
+  const entryToColIndex = new Map<number, number>();
+  for (let i = 0; i < columnEntries.length; i++) {
+    entryToColIndex.set(columnEntries[i].index, i);
+  }
+
+  // Add chapter header lanes
+  for (const chapter of chapters) {
+    // Find first and last visible column for this chapter
+    const visibleCols = chapter.flowIndices
+      .filter(fi => entryToColIndex.has(fi))
+      .map(fi => entryToColIndex.get(fi)!);
+    if (visibleCols.length === 0) continue;
+
+    const firstCol = Math.min(...visibleCols);
+    const lastCol = Math.max(...visibleCols);
+    const chapterX = columnX[firstCol];
+    const chapterEndX = columnX[lastCol] + columnWidths[lastCol];
+
+    objects.push({
+      id: `chapter-${chapter.name}`,
+      type: 'chapter-lane',
+      x: chapterX,
+      y: chapterLaneY,
+      width: chapterEndX - chapterX,
+      height: CHAPTER_LANE_HEIGHT,
+      label: chapter.name,
+      color: COLORS['chapter-lane'],
+    });
+  }
 
   // Add swimlanes
   for (const actor of actorList) {

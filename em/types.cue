@@ -149,6 +149,42 @@ package em
 	field: string // event field name this is mapped from
 }
 
+// #Chapter - Narrative segment of the event modeling timeline
+//
+// A chapter is a narrative cut in the timeline that makes the model
+// readable for humans. Like a chapter in a scenario or an act in a film:
+// a coherent mini-story from point A to point B.
+//
+// Fields:
+//   name: string - chapter identifier
+//   description?: string - optional narrative description
+//   flow: [...#Instant] - ordered sequence of slices and story steps in this chapter
+//
+// Examples: "Sign-up", "First purchase", "Refund"
+#Chapter: {
+	name:        string
+	description: string | *""
+	flow: [...#Instant]
+}
+
+// #Context - Bounded context grouping on the event modeling board
+//
+// A context groups chapters that belong to the same responsibility boundary.
+// Equivalent to a DDD bounded context expressed on the storyboard
+// (swimlane or zone surrounding columns).
+//
+// Fields:
+//   name: string - context identifier
+//   description?: string - optional description of the context's responsibility
+//   chapters: [...#Chapter] - ordered narrative chapters within this context
+//
+// Examples: "Billing", "Inventory", "Cart", "Payments"
+#Context: {
+	name:        string
+	description: string | *""
+	chapters: [...#Chapter]
+}
+
 // #ReadModel - View projection schema
 //
 // Defines what a view slice returns. Fields come from queried events,

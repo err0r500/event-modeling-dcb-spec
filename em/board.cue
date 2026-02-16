@@ -11,12 +11,15 @@ import (
 // The board is the top-level container for an event-modeled domain.
 // It defines all entities and their relationships with explicit causality.
 //
+// Structure: Board → Contexts → Chapters → Flow (slices & story steps)
+//
 // Fields:
 //   name: string - board identifier
 //   tags: {[Name]: #Tag} - all tags for DCB partitioning (key becomes tag.name)
 //   events: {[Type]: #Event} - all events (key becomes event.eventType)
 //   actors: {[Name]: #Actor} - all actors (key becomes actor.name)
-//   flow: [...#Instant] - ordered sequence of slices and story steps
+//   contexts: [...#Context] - bounded contexts, each containing ordered chapters
+//   flow: (computed) - flat ordered sequence derived from contexts → chapters → flow
 //
 // Validation (automatic):
 //   - Actors referenced in slices must exist in actors
@@ -37,8 +40,12 @@ import (
 	// All actors
 	actors: [Name=string]: #Actor & {name: Name}
 
-	// Ordered flow of instants (slices and story steps)
-	flow: [...#Instant]
+	// Contexts contain chapters which contain the flow
+	contexts: [...#Context]
+
+	// Computed flat flow from all contexts → chapters → flow
+	_allFlow: [ for ctx in contexts for ch in ctx.chapters for inst in ch.flow {inst}]
+	flow: _allFlow
 
 	// --- HELPERS ---
 

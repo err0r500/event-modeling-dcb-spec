@@ -5,7 +5,7 @@ import (
 	"list"
 )
 
-ViewCart: s.#ViewSlice & {
+ViewCartItems: s.#ViewSlice & {
 	name:  "ViewCartItems"
 	actor: _actors.User
 
