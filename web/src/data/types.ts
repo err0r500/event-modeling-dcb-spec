@@ -27,6 +27,7 @@ export interface FlowEntry {
   sliceRef?: string;
   description?: string;
   instance?: Record<string, unknown>;
+  image?: string;
 }
 
 // Slice data structures

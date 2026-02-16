@@ -52,6 +52,7 @@ type FlowEntry struct {
 	SliceRef    string         `json:"sliceRef,omitempty"`
 	Description string         `json:"description,omitempty"`
 	Instance    map[string]any `json:"instance,omitempty"`
+	Image       string         `json:"image,omitempty"`
 }
 
 // ReifyBoardFiles splits a board into a manifest + per-slice data maps.
@@ -92,6 +93,10 @@ func ReifyBoardFiles(b *Board, errors []string) (BoardManifest, map[string]map[s
 			}
 			if inst, ok := storyData["instance"].(map[string]any); ok {
 				entry.Instance = inst
+			}
+			if img, ok := storyData["image"].(string); ok && img != "" {
+				entry.Image = img
+				images = append(images, img)
 			}
 		}
 
@@ -233,6 +238,9 @@ func reifyStory(v cue.Value) map[string]any {
 	}
 	if desc := getString(v, "description"); desc != "" {
 		out["description"] = desc
+	}
+	if img := getString(v, "image"); img != "" {
+		out["image"] = img
 	}
 	if inst := v.LookupPath(cue.ParsePath("instance")); inst.Exists() && inst.Err() == nil {
 		if cv, ok := reifyConcreteValue(inst).(map[string]any); ok && len(cv) > 0 {

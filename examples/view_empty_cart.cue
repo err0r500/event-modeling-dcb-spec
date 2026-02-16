@@ -2,10 +2,13 @@ package examples
 
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-ViewEmptyCart: em.#StoryStep & {
+ViewOneItemCart: em.#StoryStep & {
 	kind:  "story"
-	name:  "view empty cart"
+	name:  "view one item cart"
+
 	slice: ViewCartItems
+
+    image: "./mockups/one_item_cart_view.png"
 	instance: ViewCartItems.readModel.fields & {
 		cartId: "cart-abc"
 		items: [
@@ -15,6 +18,7 @@ ViewEmptyCart: em.#StoryStep & {
 				price:     1499
 				quantity:  1
 			},
-		]
+		],
+        totalPrice: 1499
 	}
 }

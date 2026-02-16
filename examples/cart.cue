@@ -32,7 +32,7 @@ cartBoard: em.#Board & {
 					description: "Customer browses products and fills their cart"
 					flow: [
 						AddItem,
-						ViewEmptyCart,
+						ViewOneItemCart,
 						RemoveItem,
 						ClearCart,
 						ViewCartItems,

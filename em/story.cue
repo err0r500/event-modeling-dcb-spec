@@ -22,8 +22,8 @@ package em
 	name: string
 	// Direct reference to the slice this step uses
 	slice: #ChangeSlice | #ViewSlice
-	// Narrative description
+
 	description: string | *""
-	// Optional concrete instance data
+	image?: string
 	instance?: _
 }

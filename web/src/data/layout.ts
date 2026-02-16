@@ -218,7 +218,11 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     const colW = columnWidths[colIndex];
 
     if (entry.kind === 'story') {
-      addStory(objects, entry, colX, colW, colIndex, sliceNameY, commandY);
+      // Find referenced slice to get actor for image placement
+      const refSlice = entry.sliceRef ? slices.get(entry.sliceRef) : null;
+      const storyActorY = refSlice ? actorLaneY[refSlice.actor] : null;
+      const storyActorHeight = refSlice ? actorLaneHeight[refSlice.actor] : null;
+      addStory(objects, entry, colX, colW, colIndex, sliceNameY, commandY, storyActorY, storyActorHeight);
     } else {
       const slice = slices.get(entry.name);
       if (!slice) continue;
@@ -243,7 +247,9 @@ function addStory(
   colWidth: number,
   colIndex: number,
   sliceNameY: number,
-  commandY: number
+  commandY: number,
+  actorY: number | null,
+  actorLaneHeight: number | null
 ): void {
   // Slice name at top (story name)
   objects.push({
@@ -257,6 +263,22 @@ function addStory(
     color: '#6c7086', // gray for stories
     sliceIndex: colIndex,
   });
+
+  // Mockup image if present (in actor lane of referenced slice)
+  if (entry.image && actorY !== null && actorLaneHeight !== null) {
+    objects.push({
+      id: `mockup-${colIndex}`,
+      type: 'mockup',
+      x,
+      y: actorY,
+      width: colWidth,
+      height: MOCKUP_HEIGHT,
+      label: entry.image,
+      color: '#45475a',
+      metadata: { src: entry.image },
+      sliceIndex: colIndex,
+    });
+  }
 
   // Story card in command lane
   objects.push({

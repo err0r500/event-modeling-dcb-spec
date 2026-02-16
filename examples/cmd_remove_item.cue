@@ -5,7 +5,7 @@ import "github.com/err0r500/event-modeling-dcb-spec/em"
 RemoveItem: em.#ChangeSlice & {
 	name:  "RemoveItem"
 	actor: _actors.User
-	image: "./mockups/one_item_cart.png"
+	image: "./mockups/delete_one_item_cmd.png"
 
 	trigger: em.#EndpointTrigger & {
 		endpoint: {
