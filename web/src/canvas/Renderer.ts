@@ -106,9 +106,10 @@ export class Renderer {
         const visible = this.index.getVisible(this.viewport);
         const swimlanes = visible.filter(o => o.type === 'swimlane');
         const chapterLanes = visible.filter(o => o.type === 'chapter-lane');
+        const sliceBorders = visible.filter(o => o.type === 'slice-border');
         const mockups = visible.filter(o => o.type === 'mockup');
         const sliceNames = visible.filter(o => o.type === 'slice-name');
-        const others = visible.filter(o => o.type !== 'swimlane' && o.type !== 'chapter-lane' && o.type !== 'slice-name' && o.type !== 'mockup');
+        const others = visible.filter(o => o.type !== 'swimlane' && o.type !== 'chapter-lane' && o.type !== 'slice-border' && o.type !== 'slice-name' && o.type !== 'mockup');
 
         // Swimlanes first (background)
         for (const obj of swimlanes) {
@@ -118,6 +119,11 @@ export class Renderer {
         // Chapter lanes
         for (const obj of chapterLanes) {
             this.drawChapterLane(obj);
+        }
+
+        // Slice borders (behind content)
+        for (const obj of sliceBorders) {
+            this.drawSliceBorder(obj);
         }
 
         // Mockups
@@ -221,6 +227,16 @@ export class Renderer {
         }
     }
 
+    private drawSliceBorder(obj: CanvasObject): void {
+        const ctx = this.ctx;
+
+        // Transparent fill with rounded border
+        ctx.strokeStyle = obj.color;
+        ctx.lineWidth = 1.5 / this.viewport.zoom;
+        this.roundRect(obj.x, obj.y, obj.width, obj.height, 8);
+        ctx.stroke();
+    }
+
     private drawMockup(obj: CanvasObject): void {
         const ctx = this.ctx;
         const src = obj.metadata?.src as string;
@@ -313,22 +329,16 @@ export class Renderer {
             ctx.shadowOffsetY = 4 / this.viewport.zoom;
         }
 
-        // Dashed border rounded rectangle
-        ctx.fillStyle = '#1e1e2e'; // dark fill
-        ctx.strokeStyle = isHovered ? '#f5e0dc' : obj.color;
-        ctx.lineWidth = (isHovered ? 2 : 1.5) / this.viewport.zoom;
-        ctx.setLineDash([6 / this.viewport.zoom, 4 / this.viewport.zoom]);
-
+        // Rounded rectangle (no border)
+        ctx.fillStyle = obj.color;
         this.roundRect(obj.x, obj.y, obj.width, obj.height, 6);
         ctx.fill();
-        ctx.stroke();
 
-        ctx.setLineDash([]);
         ctx.shadowColor = 'transparent';
 
         // Label - reference name
         if (this.viewport.zoom > 0.15) {
-            ctx.fillStyle = obj.color;
+            ctx.fillStyle = '#1e1e2e';
             const fontSize = Math.min(13, obj.width / 8);
             const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
             ctx.font = `400 ${fontSize / zoomFactor}px system-ui`;
@@ -362,7 +372,7 @@ export class Renderer {
             ctx.globalAlpha = 0.2;
         }
 
-        const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+        const zoomFactor = Math.max(1, Math.pow(this.viewport.zoom, 0.5));
         const baseFontSize = Math.min(13, obj.width / 10);
         const lineHeight = 18 / zoomFactor;
         const padding = 10 / zoomFactor;

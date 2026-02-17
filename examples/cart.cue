@@ -38,6 +38,8 @@ cartBoard: em.#Board & {
 						AddOneItemCartStory,
 						ViewOneItemCart,
 						ClearCart,
+						ViewEmptyCart,
+						AddOneItemCartStory,
 						ViewCartItems,
 					]
 				},

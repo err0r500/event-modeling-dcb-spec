@@ -16,9 +16,10 @@ ViewEmptyCart: em.#StoryStep & {
 	}
 }
 
-AddOneItemCartStory: em.#StoryStep & {
+AddOneItemCartStory: em.#ChangeStoryStep & {
 	kind:  "story"
 	name:  "one empty cart"
 
 	slice: AddItem
+    emits: [_events.ItemAdded & {fields: {cartId: "abc"}}]
 }

@@ -52,6 +52,7 @@ type FlowEntry struct {
 	SliceRef    string         `json:"sliceRef,omitempty"`
 	Description string         `json:"description,omitempty"`
 	Instance    map[string]any `json:"instance,omitempty"`
+	Emits       []any          `json:"emits,omitempty"`
 	Image       string         `json:"image,omitempty"`
 }
 
@@ -93,6 +94,9 @@ func ReifyBoardFiles(b *Board, errors []string) (BoardManifest, map[string]map[s
 			}
 			if inst, ok := storyData["instance"].(map[string]any); ok {
 				entry.Instance = inst
+			}
+			if emits, ok := storyData["emits"].([]any); ok {
+				entry.Emits = emits
 			}
 			if img, ok := storyData["image"].(string); ok && img != "" {
 				entry.Image = img
@@ -245,6 +249,11 @@ func reifyStory(v cue.Value) map[string]any {
 	if inst := v.LookupPath(cue.ParsePath("instance")); inst.Exists() && inst.Err() == nil {
 		if cv, ok := reifyConcreteValue(inst).(map[string]any); ok && len(cv) > 0 {
 			out["instance"] = cv
+		}
+	}
+	if emits := v.LookupPath(cue.ParsePath("emits")); emits.Exists() && emits.Err() == nil {
+		if items := reifyEventInstances(emits); len(items) > 0 {
+			out["emits"] = items
 		}
 	}
 	return out

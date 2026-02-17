@@ -9,6 +9,8 @@ ViewCartItems: s.#ViewSlice & {
 	name:  "ViewCartItems"
 	actor: _actors.User
 
+    image: "./mockups/one_item_cart.png"
+
 	endpoint: s.#Endpoint & {
         verb: "GET"
 		params: {

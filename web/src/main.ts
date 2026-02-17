@@ -1,4 +1,4 @@
-import type { CanvasObject, Viewport, BoardManifest, ContextEntry } from './data/types';
+import type { CanvasObject, Viewport, BoardManifest } from './data/types';
 import { loadBoard, watchBoard, BOARD_PATH } from './data/loader';
 import type { LoadedBoard } from './data/loader';
 import { layoutBoard, LayoutOptions } from './data/layout';
@@ -409,7 +409,6 @@ function hideImageModal(): void {
 }
 
 // Tree sidebar state
-let expandedContexts: Set<string> = new Set();
 let expandedChapters: Set<string> = new Set();
 let selectedSliceIndex: number | null = null;
 

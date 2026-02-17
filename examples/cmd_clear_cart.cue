@@ -5,6 +5,9 @@ import "github.com/err0r500/event-modeling-dcb-spec/em"
 ClearCart: em.#ChangeSlice & {
 	name:  "ClearCart"
 	actor: _actors.User
+
+	image: "./mockups/clear_cart.png"
+
 	trigger: em.#EndpointTrigger & {
 		endpoint: {
 			verb: "DELETE"
@@ -12,9 +15,10 @@ ClearCart: em.#ChangeSlice & {
 			path: "/carts/{cartId}/items"
 		}
 	}
+
 	command: {
 		fields: {
-			cartId:      string
+			cartId: string
 		}
 		query: {
 			items: [{
@@ -23,6 +27,7 @@ ClearCart: em.#ChangeSlice & {
 			}]
 		}
 	}
+
 	emits: [
 		_events.CartCleared,
 	]

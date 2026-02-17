@@ -27,7 +27,13 @@ export interface FlowEntry {
   sliceRef?: string;
   description?: string;
   instance?: Record<string, unknown>;
+  emits?: StoryEventInstance[];
   image?: string;
+}
+
+export interface StoryEventInstance {
+  type: string;
+  values?: Record<string, unknown>;
 }
 
 // Slice data structures
@@ -127,7 +133,7 @@ export interface ViewScenario {
 }
 
 // Canvas object types
-export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'swimlane' | 'slice-name' | 'scenario' | 'mockup' | 'story' | 'chapter-lane';
+export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'swimlane' | 'slice-name' | 'slice-border' | 'scenario' | 'mockup' | 'story' | 'chapter-lane';
 
 export interface CanvasObject {
   id: string;

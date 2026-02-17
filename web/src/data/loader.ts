@@ -124,6 +124,11 @@ export async function loadBoard(): Promise<LoadedBoard> {
 }
 
 async function hashText(text: string): Promise<string> {
+    // crypto.subtle not available in insecure contexts (Safari)
+    if (!crypto.subtle) {
+        // Simple hash fallback - just use length + first/last chars
+        return `${text.length}-${text.slice(0, 100)}-${text.slice(-100)}`;
+    }
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);

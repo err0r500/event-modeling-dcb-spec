@@ -16,6 +16,8 @@ const COLORS = {
   scenario: '#b4befe',    // Lavender
   swimlane: '#313244',    // Dark gray
   story: '#6c7086',       // Gray
+  storyCommand: '#b4d0fa',  // Lighter blue (for stories referencing change slices)
+  storyView: '#b8f0e8',     // Lighter teal (for stories referencing view slices)
 };
 
 const LANE_HEIGHT = 110;
@@ -106,7 +108,7 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
 
   // Calculate Y positions - chapter header at very top, then slice names
   const chapterLaneY = 10;
-  const sliceNameY = chapters.length > 0 ? chapterLaneY + CHAPTER_LANE_HEIGHT + 10 : 20;
+  const sliceNameY = chapters.length > 0 ? chapterLaneY + CHAPTER_LANE_HEIGHT + 20 : 20;
   const actorLaneY: Record<string, number> = {};
   const actorLaneHeight: Record<string, number> = {};
   let currentY = sliceNameY + 50;
@@ -229,7 +231,7 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
       const refSlice = entry.sliceRef ? slices.get(entry.sliceRef) : null;
       const storyActorY = refSlice ? actorLaneY[refSlice.actor] : null;
       const storyActorHeight = refSlice ? actorLaneHeight[refSlice.actor] : null;
-      addStory(objects, entry, colX, colW, colIndex, sliceNameY, commandY, storyActorY, storyActorHeight);
+      addStory(objects, entry, colX, colW, colIndex, sliceNameY, commandY, eventY, storyActorY, storyActorHeight, refSlice?.type);
     } else {
       const slice = slices.get(entry.name);
       if (!slice) continue;
@@ -237,9 +239,9 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
       const actorY = actorLaneY[slice.actor];
       const laneHeight = actorLaneHeight[slice.actor];
       if (slice.type === 'change') {
-        addChangeSlice(objects, slice as ChangeSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY);
+        addChangeSlice(objects, slice as ChangeSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY, maxScenariosHeight);
       } else {
-        addViewSlice(objects, slice as ViewSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY);
+        addViewSlice(objects, slice as ViewSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY, maxScenariosHeight);
       }
     }
   }
@@ -255,8 +257,10 @@ function addStory(
   colIndex: number,
   sliceNameY: number,
   commandY: number,
+  eventY: number,
   actorY: number | null,
-  actorLaneHeight: number | null
+  actorLaneHeight: number | null,
+  sliceType: 'change' | 'view' | undefined
 ): void {
   // Slice name at top (story name)
   objects.push({
@@ -296,10 +300,32 @@ function addStory(
     width: colWidth,
     height: STORY_HEIGHT,
     label: `(${entry.sliceRef})`,
-    color: COLORS.story,
+    color: sliceType === 'change' ? COLORS.storyCommand : sliceType === 'view' ? COLORS.storyView : COLORS.story,
     metadata: { sliceRef: entry.sliceRef, description: entry.description, instance: entry.instance },
     sliceIndex: colIndex,
   });
+
+  // Emitted events (for change story steps)
+  if (entry.emits && entry.emits.length > 0) {
+    const eventCount = entry.emits.length;
+    const eventW = Math.max(80, (colWidth - (eventCount - 1) * 5) / eventCount);
+    entry.emits.forEach((emit, i) => {
+      const eventType = typeof emit === 'string' ? emit : emit.type;
+      const values = typeof emit === 'string' ? undefined : emit.values;
+      objects.push({
+        id: `story-event-${colIndex}-${i}`,
+        type: 'event',
+        x: x + i * (eventW + 5),
+        y: eventY,
+        width: eventW,
+        height: OBJECT_HEIGHT,
+        label: eventType,
+        color: COLORS.event,
+        metadata: { eventType, values, isStoryEvent: true },
+        sliceIndex: colIndex,
+      });
+    });
+  }
 }
 
 function addChangeSlice(
@@ -313,8 +339,24 @@ function addChangeSlice(
   actorLaneHeight: number,
   commandY: number,
   eventY: number,
-  scenarioY: number
+  scenarioY: number,
+  maxScenariosHeight: number
 ): void {
+  // Slice border (full column)
+  const borderTop = sliceNameY - 5;
+  const borderBottom = scenarioY + maxScenariosHeight;
+  objects.push({
+    id: `slice-border-${colIndex}`,
+    type: 'slice-border',
+    x: x - 5,
+    y: borderTop,
+    width: colWidth + 10,
+    height: borderBottom - borderTop,
+    label: '',
+    color: '#cdd6f4',
+    sliceIndex: colIndex,
+  });
+
   // Slice name at top
   objects.push({
     id: `slice-${colIndex}`,
@@ -445,8 +487,24 @@ function addViewSlice(
   actorLaneHeight: number,
   commandY: number,
   _eventY: number,
-  scenarioY: number
+  scenarioY: number,
+  maxScenariosHeight: number
 ): void {
+  // Slice border (full column)
+  const borderTop = sliceNameY - 5;
+  const borderBottom = scenarioY + maxScenariosHeight;
+  objects.push({
+    id: `slice-border-${colIndex}`,
+    type: 'slice-border',
+    x: x - 5,
+    y: borderTop,
+    width: colWidth + 10,
+    height: borderBottom - borderTop,
+    label: '',
+    color: '#cdd6f4',
+    sliceIndex: colIndex,
+  });
+
   // Slice name at top
   objects.push({
     id: `slice-${colIndex}`,

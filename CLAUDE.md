@@ -4,25 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Event modeling specification framework using CUE as a declarative constraint engine. Boards define domain flows with explicit causality: commands, events, views, actors, and GWT scenarios. Two CLI tools: interactive TUI explorer and ASCII renderer.
+Event modeling specification framework using CUE as a declarative constraint engine. Boards define domain flows with explicit causality: commands, events, views, actors, and GWT scenarios.
 
 ## Commands
 
 ```bash
-go build ./cmd/tui            # Build TUI app
-go build ./cmd/render          # Build render CLI
+go build ./cmd/emspec          # Build CLI
 go test ./...                  # Run all tests
 go test -run TestValidation    # Run specific test (schema_test.go)
 ```
 
-TUI: `go run ./cmd/tui -file examples/cart.cue [-board name]`
-Render: `go run ./cmd/render -file examples/cart.cue -name <instant> [-board name]`
+```bash
+# TUI + watch (default)
+go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir
+
+# With web server
+go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir -web
+
+# Web only
+go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir -web -no-tui
+```
 
 ## Architecture
 
 ```
-cmd/tui/         → Bubbletea TUI entry point (file watcher, table view, detail view)
-cmd/render/      → ASCII box renderer for individual instants
+cmd/emspec/      → Unified CLI: renders IR, watches CUE, runs TUI and/or web server
 pkg/board/       → Board loading: CUE file → Go Board struct via cue.Value unification
 pkg/render/      → Rendering + validation (ValidateBoard, validateParameterizedTags)
 pkg/tui/         → TUI model, styles, detail view, item definitions
