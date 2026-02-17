@@ -12,8 +12,8 @@ _tags: {
 
 _actors: [Name=string]: em.#Actor & {name: Name}
 _actors: {
-	User: {}
 	InventoryEventBus: {}
+	User: {}
 }
 
 cartBoard: em.#Board & {

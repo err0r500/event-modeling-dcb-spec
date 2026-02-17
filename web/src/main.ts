@@ -90,6 +90,18 @@ function computeHighlightSet(obj: CanvasObject | null): string[] | null {
         for (const t of obj.metadata.queriesTypes as string[]) {
             ids.push(...(eventTypeToEvents.get(t) || []));
         }
+    } else if (obj.type === 'story' && obj.metadata?.sliceRef) {
+        // Story: highlight like the referenced slice's command/read-model
+        const sliceRef = obj.metadata.sliceRef as string;
+        const refObj = objects.find(o =>
+            (o.type === 'command' || o.type === 'read-model') &&
+            objects.some(s => s.type === 'slice-name' && s.label === sliceRef && s.sliceIndex === o.sliceIndex)
+        );
+        if (refObj) {
+            ids.push(obj.id); // include the story itself
+            return [...ids, ...(computeHighlightSet(refObj) || [])];
+        }
+        return null;
     } else {
         return null;
     }

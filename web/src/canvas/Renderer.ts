@@ -147,6 +147,9 @@ export class Renderer {
             }
         }
 
+        // Draw data flow arrows
+        this.drawArrows(others, mockups)
+
         // Instance panels on top (z-index)
         const stories = others.filter(o => o.type === 'story');
         for (const obj of stories) {
@@ -568,5 +571,91 @@ export class Renderer {
             truncated = truncated.slice(0, -1);
         }
         return truncated + '...';
+    }
+
+    private drawArrows(objects: CanvasObject[], mockups: CanvasObject[]): void {
+        // Group objects by sliceIndex
+        const bySlice = new Map<number, CanvasObject[]>();
+        for (const obj of [...objects, ...mockups]) {
+            if (obj.sliceIndex === undefined) continue;
+            if (!bySlice.has(obj.sliceIndex)) {
+                bySlice.set(obj.sliceIndex, []);
+            }
+            bySlice.get(obj.sliceIndex)!.push(obj);
+        }
+
+        for (const [, sliceObjs] of bySlice) {
+            const readModel = sliceObjs.find(o => o.type === 'read-model');
+            const command = sliceObjs.find(o => o.type === 'command');
+            const endpoint = sliceObjs.find(o => o.type === 'endpoint' || o.type === 'external-event');
+            const mockup = sliceObjs.find(o => o.type === 'mockup');
+            const events = sliceObjs.filter(o => o.type === 'event');
+            const story = sliceObjs.find(o => o.type === 'story');
+
+            if (readModel) {
+                // View slice: arrow UP from read-model to endpoint (or mockup if no endpoint)
+                const target = endpoint || mockup;
+                if (target) {
+                    this.drawArrow(
+                        readModel.x + readModel.width / 2,
+                        readModel.y,
+                        target.x + target.width / 2,
+                        target.y + target.height
+                    );
+                }
+            } else if (story) {
+                // Story step: view stories get arrow UP to endpoint (or mockup if no endpoint)
+                const isViewStory = events.length === 0;
+                if (isViewStory) {
+                    const target = endpoint || mockup;
+                    if (target) {
+                        this.drawArrow(
+                            story.x + story.width / 2,
+                            story.y,
+                            target.x + target.width / 2,
+                            target.y + target.height
+                        );
+                    }
+                }
+                // No arrow for change stories (they emit events below)
+            } else if (command && endpoint) {
+                // Change slice: arrow DOWN from endpoint → command
+                this.drawArrow(
+                    endpoint.x + endpoint.width / 2,
+                    endpoint.y + endpoint.height,
+                    command.x + command.width / 2,
+                    command.y
+                );
+            }
+        }
+    }
+
+    private drawArrow(x1: number, y1: number, x2: number, y2: number): void {
+        const ctx = this.ctx;
+        const arrowSize = 8 / this.viewport.zoom;
+
+        ctx.strokeStyle = '#6c7086';
+        ctx.fillStyle = '#6c7086';
+        ctx.lineWidth = 2 / this.viewport.zoom;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        // Arrowhead
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(
+            x2 - arrowSize * Math.cos(angle - Math.PI / 6),
+            y2 - arrowSize * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+            x2 - arrowSize * Math.cos(angle + Math.PI / 6),
+            y2 - arrowSize * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
     }
 }

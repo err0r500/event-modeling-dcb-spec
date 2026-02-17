@@ -8,6 +8,8 @@ ViewProductsInventories: s.#ViewSlice & {
 	name:  "ViewProductsInventories"
 	actor: _actors.User
 
+    image: "./mockups/view_inventories.png"
+
 	endpoint: s.#Endpoint & {
         verb: "GET"
 		params: {
@@ -26,7 +28,7 @@ ViewProductsInventories: s.#ViewSlice & {
 	}
 
 	readModel: s.#ReadModel & {
-		name:        "ProductInvetories"
+		name:        "ProductInventories"
 		cardinality: "single"
 		fields: {
 			products: [...{
