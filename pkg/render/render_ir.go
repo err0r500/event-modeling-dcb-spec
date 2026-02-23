@@ -56,6 +56,12 @@ func renderChangeSliceIR(data map[string]any, width int) (string, error) {
 				box.AddLine(fmt.Sprintf("      - %s: %s", k, irTypeStr(v)))
 			}
 		}
+		if auth := getMap(ep, "auth"); len(auth) > 0 {
+			box.AddLine("    auth:")
+			for k, v := range auth {
+				box.AddLine(fmt.Sprintf("      - %s: %s", k, irTypeStr(v)))
+			}
+		}
 	} else if triggerKind == "externalEvent" {
 		ext := getMap(trigger, "externalEvent")
 		box.AddLine(fmt.Sprintf("  External Event: %s", getStr(ext, "name")))
@@ -174,6 +180,12 @@ func renderViewSliceIR(data map[string]any, width int) (string, error) {
 	if params := getMap(ep, "params"); len(params) > 0 {
 		box.AddLine("    params:")
 		for k, v := range params {
+			box.AddLine(fmt.Sprintf("      - %s: %s", k, irTypeStr(v)))
+		}
+	}
+	if auth := getMap(ep, "auth"); len(auth) > 0 {
+		box.AddLine("    auth:")
+		for k, v := range auth {
 			box.AddLine(fmt.Sprintf("      - %s: %s", k, irTypeStr(v)))
 		}
 	}

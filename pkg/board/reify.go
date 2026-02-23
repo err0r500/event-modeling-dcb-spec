@@ -272,6 +272,9 @@ func reifyEndpoint(v cue.Value) map[string]any {
 	if body := reifyFields(v.LookupPath(cue.ParsePath("body"))); len(body) > 0 {
 		out["body"] = body
 	}
+	if auth := reifyFields(v.LookupPath(cue.ParsePath("auth"))); len(auth) > 0 {
+		out["auth"] = auth
+	}
 	return out
 }
 
