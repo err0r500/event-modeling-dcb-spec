@@ -113,16 +113,18 @@ import (
 			let _computedFields = [for k, _ in inst.command.computed {k}]
 			let _mappedFields = [for k, _ in inst.command.mapping {k}]
 
-			// Endpoint trigger: fields from params/body
+			// Endpoint trigger: fields from params/body/auth
 			if inst.trigger.kind == "endpoint" {
 				let _paramFields = [for k, _ in inst.trigger.endpoint.params {k}]
 				let _bodyFields = [for k, _ in inst.trigger.endpoint.body {k}]
+				let _authFields = [for k, _ in inst.trigger.endpoint.auth {k}]
 				for fieldName, fieldType in inst.command.fields {
 					let inParams = list.Contains(_paramFields, fieldName)
 					let inBody = list.Contains(_bodyFields, fieldName)
+					let inAuth = list.Contains(_authFields, fieldName)
 					let isComputed = list.Contains(_computedFields, fieldName)
 					let inMapping = list.Contains(_mappedFields, fieldName)
-					("slice_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inParams | inBody | isComputed | inMapping) & true
+					("slice_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inParams | inBody | inAuth | isComputed | inMapping) & true
 
 					// Type validation (skip computed)
 					if isComputed == false && inMapping == true {
@@ -133,6 +135,9 @@ import (
 					}
 					if isComputed == false && inMapping == false && inBody == true {
 						("slice_\(inst.name)_field_\(fieldName)_type"): inst.trigger.endpoint.body[fieldName] & fieldType
+					}
+					if isComputed == false && inMapping == false && inAuth == true {
+						("slice_\(inst.name)_field_\(fieldName)_type"): inst.trigger.endpoint.auth[fieldName] & fieldType
 					}
 				}
 

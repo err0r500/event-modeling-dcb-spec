@@ -1,6 +1,6 @@
 module github.com/err0r500/event-modeling-dcb-spec
 
-go 1.25.6
+go 1.24.7
 
 require (
 	cuelang.org/go v0.15.3
