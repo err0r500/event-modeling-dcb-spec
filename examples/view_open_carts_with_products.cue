@@ -22,8 +22,8 @@ OpenCartsWithProducts: em.#ViewSlice & {
 
 	readModel: em.#ReadModel & {
 		name:        "OpenCartsWithProducts"
-		cardinality: "table"
 		persistence: "persistent"
+		cardinality: "table"
 
 		columns: {
 			productId: string

@@ -12,7 +12,6 @@ ArchiveItems: em.#AutomationSlice & {
     consumes: [OpenCartsWithProducts.readModel]
 
 	command: em.#Command & {
-		// Only trigger fields - productId comes from PriceChanged
 		fields: em.#Field & {
 			productId: string
 		}
@@ -26,7 +25,6 @@ ArchiveItems: em.#AutomationSlice & {
 		}
 	}
 
-	// cartId, itemId come from consumed readModel.columns
 	emits: [_events.ItemArchived & {
 		mapping: {
 			cartId: consumes[0].columns.cartId
