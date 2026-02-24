@@ -437,14 +437,18 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
         // Scenario details
         else if (obj.type === 'scenario') {
             content = obj.label;
-            if (Array.isArray(obj.metadata.given) && obj.metadata.given.length > 0) {
-                const given = obj.metadata.given as any[];
-                const givenStr = given.map(g => {
-                    if (typeof g === 'string') return g;
-                    const vals = g.values ? `\n${formatFields(g.values, '    ')}` : '';
-                    return `${g.type}${vals}`;
-                }).join('\n  ');
-                content += `\n\nGiven:\n  ${givenStr}`;
+            if (Array.isArray(obj.metadata.given)) {
+                if (obj.metadata.given.length === 0) {
+                    content += `\n\nGiven: []`;
+                } else {
+                    const given = obj.metadata.given as any[];
+                    const givenStr = given.map(g => {
+                        if (typeof g === 'string') return g;
+                        const vals = g.values ? `\n${formatFields(g.values, '    ')}` : '';
+                        return `${g.type}${vals}`;
+                    }).join('\n  ');
+                    content += `\n\nGiven:\n  ${givenStr}`;
+                }
             }
             if (obj.metadata.when) {
                 const when = obj.metadata.when as any;
@@ -462,8 +466,16 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
                     content += `\n\nThen: FAIL → ${then.error}`;
                 }
             }
-            if (obj.metadata.expect) {
-                content += `\n\nExpect:\n${formatFields(obj.metadata.expect as Record<string, unknown>)}`;
+            if (obj.metadata.expect !== undefined) {
+                if (Array.isArray(obj.metadata.expect)) {
+                    if (obj.metadata.expect.length === 0) {
+                        content += `\n\nExpect: []`;
+                    } else {
+                        content += `\n\nExpect:\n${formatValue(obj.metadata.expect, '')}`;
+                    }
+                } else {
+                    content += `\n\nExpect:\n${formatFields(obj.metadata.expect as Record<string, unknown>)}`;
+                }
             }
         }
     }
