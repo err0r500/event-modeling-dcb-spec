@@ -14,13 +14,16 @@ AutoCloseCart: em.#AutomationSlice & {
 	command: em.#Command & {
 		fields: em.#Field & {
 			cartId: string
+			shopperId: string
 		}
+
 		query: {
 			items: [{
 				types: [_events.CartSubmitted]
-				tags: [_tags.cart_id]
+				tags: [_tags.cart_id, _tags.shopper_id]
 			}]
 		}
+
 	}
 
 	emits: [_events.CartClosed]

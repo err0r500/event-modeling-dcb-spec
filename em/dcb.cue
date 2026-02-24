@@ -30,7 +30,7 @@ package em
 //    tags: [{tag: tags.cartId, value: command.fields.cartId}]}
 #QueryItem: {
 	types!: [...#Event]          // OR - event matches if ANY (reference board events)
-	tags!: [...#Tag | #TagRef]   // AND - event must have ALL
+	tags: [...#Tag | #TagRef] | *[]   // AND - event must have ALL
 }
 
 // #DCBQuery - Dynamic Consistency Boundary query

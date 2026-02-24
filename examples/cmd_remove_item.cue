@@ -11,15 +11,21 @@ RemoveItem: em.#ChangeSlice & {
 		endpoint: {
 			verb: "DELETE"
 			params: {cartId: string, itemId: string}
+			auth: {userId: string}
 			path: "/carts/{cartId}/items/{itemId}"
 		}
 	}
 
 	command: {
 		fields: {
-			cartId: string
-			itemId: string
+			shopperId: string
+			cartId:    string
+			itemId:    string
 		}
+
+        mapping: {shopperId: trigger.endpoint.auth.userId}
+
+
 		query: {
 			items: [{
 				types: [_events.CartCreated, _events.ItemAdded, _events.ItemRemoved]
@@ -68,7 +74,7 @@ RemoveItem: em.#ChangeSlice & {
 			when: {cartId: "abc", itemId: "item1"}
 			then: {
 				success: false
-				error: "the item doesn't belong to this cart"
+				error:   "the item doesn't belong to this cart"
 			}
 		},
 	]

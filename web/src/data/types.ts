@@ -58,7 +58,7 @@ export interface ViewSlice {
   actor: string;
   image?: string;
   devstatus?: string;
-  endpoint: Endpoint;
+  endpoint?: Endpoint;
   query: QueryItem[];
   readModel: ReadModel;
   scenarios: ViewScenario[];
@@ -75,6 +75,7 @@ export interface AutomationSlice {
   command: Command;
   emits: EventEmit[];
   scenarios: ChangeScenario[];
+  consumes?: { name: string }[];
 }
 
 export type Slice = ChangeSlice | ViewSlice | AutomationSlice;
@@ -84,6 +85,7 @@ export interface Endpoint {
   path: string;
   params?: Record<string, string>;
   body?: Record<string, string>;
+  auth?: Record<string, string>;
 }
 
 export interface ExternalEvent {

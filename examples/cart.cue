@@ -6,6 +6,7 @@ import "github.com/err0r500/event-modeling-dcb-spec/em"
 _tags: [Name=string]: em.#Tag & {name: Name}
 _tags: {
 	item_id: {param: "itemId", type: int}
+	shopper_id: {param: "shopper_id", type: string}
 	cart_id: {param: "cartId", type: string}
 	product_id: {param: "productId", type: string}
 }
@@ -56,9 +57,9 @@ cartBoard: em.#Board & {
 					description: ""
 					flow: [
 						OnPriceChanged,
-                        ChangedPrices,
-                        OpenCartsWithProducts,
-                        ArchiveItems
+						ChangedPrices,
+						OpenCartsWithProducts,
+						ArchiveItems,
 					]
 				},
 				{

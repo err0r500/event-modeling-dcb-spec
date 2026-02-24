@@ -243,11 +243,15 @@ func reifyViewSlice(v cue.Value) map[string]any {
 		"type":      "view",
 		"name":      getString(v, "name"),
 		"actor":     getString(v, "actor.name"),
-		"endpoint":  reifyEndpoint(v.LookupPath(cue.ParsePath("endpoint"))),
 		"query":     reifyQueryItems(v.LookupPath(cue.ParsePath("query.items"))),
 		"readModel": reifyReadModel(v.LookupPath(cue.ParsePath("readModel"))),
 		"scenarios": reifyViewScenarios(v.LookupPath(cue.ParsePath("scenarios"))),
 	}
+
+	if ep := v.LookupPath(cue.ParsePath("endpoint")); ep.Exists() && ep.Err() == nil {
+		out["endpoint"] = reifyEndpoint(ep)
+	}
+
 	if img := getString(v, "image"); img != "" {
 		out["image"] = img
 	}
@@ -268,11 +272,33 @@ func reifyAutomationSlice(v cue.Value) map[string]any {
 		"emits":     reifyEmits(v.LookupPath(cue.ParsePath("emits"))),
 		"scenarios": reifyGWTScenarios(v.LookupPath(cue.ParsePath("scenarios")), sliceName),
 	}
+	if consumes := reifyConsumes(v.LookupPath(cue.ParsePath("consumes"))); len(consumes) > 0 {
+		out["consumes"] = consumes
+	}
 	if img := getString(v, "image"); img != "" {
 		out["image"] = img
 	}
 	if ds := getString(v, "devstatus"); ds != "" {
 		out["devstatus"] = ds
+	}
+	return out
+}
+
+// reifyConsumes extracts consumed ReadModel references (name only for linking)
+func reifyConsumes(v cue.Value) []map[string]any {
+	if !v.Exists() || v.Err() != nil {
+		return nil
+	}
+	iter, err := v.List()
+	if err != nil {
+		return nil
+	}
+	var out []map[string]any
+	for iter.Next() {
+		rm := iter.Value()
+		out = append(out, map[string]any{
+			"name": getString(rm, "name"),
+		})
 	}
 	return out
 }
@@ -341,6 +367,9 @@ func reifyEndpoint(v cue.Value) map[string]any {
 	}
 	if body := reifyFields(v.LookupPath(cue.ParsePath("body"))); len(body) > 0 {
 		out["body"] = body
+	}
+	if auth := reifyFields(v.LookupPath(cue.ParsePath("auth"))); len(auth) > 0 {
+		out["auth"] = auth
 	}
 	return out
 }
@@ -978,4 +1007,3 @@ func reifyConcreteValue(v cue.Value) any {
 	}
 	return nil
 }
-

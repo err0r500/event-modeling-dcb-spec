@@ -6,17 +6,16 @@ OpenCartsWithProducts: em.#ViewSlice & {
 	name:  "OpenCartsWithProducts"
 	actor: _actors.User
 
-	endpoint: em.#Endpoint & {
-		verb: "GET"
-		path: "/open-carts/{productId}"
-		params: {productId: string}
-	}
-
 	query: {
 		items: [
 			{
-				types: [_events.CartCreated, _events.CartSubmitted, _events.ItemAdded, _events.CartCleared, _events.ItemRemoved]
-                tags: []
+				types: [
+					_events.CartCreated,
+					_events.CartSubmitted,
+					_events.ItemAdded,
+					_events.CartCleared,
+					_events.ItemRemoved,
+				]
 			},
 		]
 	}
@@ -24,15 +23,65 @@ OpenCartsWithProducts: em.#ViewSlice & {
 	readModel: em.#ReadModel & {
 		name:        "OpenCartsWithProducts"
 		cardinality: "table"
-		fields: {
-			cartId: string
-			itemId: string
-		}
-		mapping: {
-			cartId: {event: _events.ItemAdded, field: "cartId"}
-			itemId: {event: _events.ItemAdded, field: "itemId"}
+		persistence: "persistent"
+
+		columns: {
+			productId: string
+			cartId:    string
+			itemId:    string
 		}
 	}
 
-	scenarios: []
+	scenarios: [
+		{
+			name: "one item"
+			given: [
+				_events.CartCreated & {fields: {cartId: "abc"}},
+				_events.ItemAdded & {fields: {itemId: "item1", productId: "product-1"}},
+			]
+			expect: [{
+				cartId:    "abc"
+				itemId:    "item-1"
+				productId: "prod-1"
+			}]
+		},
+		{
+			name: "two item, same product id"
+			given: [
+				_events.CartCreated & {fields: {cartId: "abc"}},
+				_events.ItemAdded & {fields: {itemId: "item1", productId: "product-1"}},
+				_events.ItemAdded & {fields: {itemId: "item2", productId: "product-1"}},
+			]
+			expect: [
+				{
+					cartId:    "abc"
+					itemId:    "item-1"
+					productId: "prod-1"
+				},
+				{
+					cartId:    "abc"
+					itemId:    "item-2"
+					productId: "prod-1"
+				},
+			]
+		},
+		{
+			name: "cart cleared"
+			given: [
+				_events.CartCreated,
+				_events.ItemAdded,
+				_events.CartCleared,
+			]
+			expect: []
+		},
+		{
+			name: "cart submitted"
+			given: [
+				_events.CartCreated,
+				_events.ItemAdded,
+				_events.CartSubmitted,
+			]
+			expect: []
+		},
+	]
 }

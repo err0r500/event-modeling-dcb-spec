@@ -115,16 +115,18 @@ import (
 			let _computedFields = [for k, _ in inst.command.computed {k}]
 			let _mappedFields = [for k, _ in inst.command.mapping {k}]
 
-			// Endpoint trigger: fields from params/body
+			// Endpoint trigger: fields from params/body/auth
 			if inst.trigger.kind == "endpoint" {
 				let _paramFields = [for k, _ in inst.trigger.endpoint.params {k}]
 				let _bodyFields = [for k, _ in inst.trigger.endpoint.body {k}]
+				let _authFields = [for k, _ in inst.trigger.endpoint.auth {k}]
 				for fieldName, fieldType in inst.command.fields {
 					let inParams = list.Contains(_paramFields, fieldName)
 					let inBody = list.Contains(_bodyFields, fieldName)
+					let inAuth = list.Contains(_authFields, fieldName)
 					let isComputed = list.Contains(_computedFields, fieldName)
 					let inMapping = list.Contains(_mappedFields, fieldName)
-					("slice_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inParams | inBody | isComputed | inMapping) & true
+					("slice_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inParams | inBody | inAuth | isComputed | inMapping) & true
 
 					// Type validation (skip computed)
 					if isComputed == false && inMapping == true {
@@ -135,6 +137,9 @@ import (
 					}
 					if isComputed == false && inMapping == false && inBody == true {
 						("slice_\(inst.name)_field_\(fieldName)_type"): inst.trigger.endpoint.body[fieldName] & fieldType
+					}
+					if isComputed == false && inMapping == false && inAuth == true {
+						("slice_\(inst.name)_field_\(fieldName)_type"): inst.trigger.endpoint.auth[fieldName] & fieldType
 					}
 				}
 
@@ -265,18 +270,20 @@ import (
 				_emitDefined: list.Contains(_eventTypeList, e.eventType) & true
 			}
 
-			// Command fields must come from trigger, mapping, or be computed
+			// Command fields must come from trigger, consumed readModels, mapping, or be computed
 			let _computedFields = [for k, _ in inst.command.computed {k}]
 			let _mappedFields = [for k, _ in inst.command.mapping {k}]
+			let _consumedFields = [for v in inst.consumes for k, _ in v._schema {k}]
 
-			// ExternalEvent trigger: fields from externalEvent.fields
+			// ExternalEvent trigger: fields from externalEvent.fields or consumed readModels
 			if inst.trigger.kind == "externalEvent" {
 				let _extFields = [for k, _ in inst.trigger.externalEvent.fields {k}]
 				for fieldName, fieldType in inst.command.fields {
 					let inExt = list.Contains(_extFields, fieldName)
+					let inConsumed = list.Contains(_consumedFields, fieldName)
 					let isComputed = list.Contains(_computedFields, fieldName)
 					let inMapping = list.Contains(_mappedFields, fieldName)
-					("automation_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inExt | isComputed | inMapping) & true
+					("automation_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inExt | inConsumed | isComputed | inMapping) & true
 
 					// Type validation (skip computed)
 					if isComputed == false && inMapping == true {
@@ -288,7 +295,7 @@ import (
 				}
 			}
 
-			// InternalEvent trigger: fields from internalEvent.fields, causality check
+			// InternalEvent trigger: fields from internalEvent.fields or consumed readModels, causality check
 			if inst.trigger.kind == "internalEvent" {
 				// Causality: the triggering event must be emitted before this slice
 				("automation_\(inst.name)_internalEvent_\(inst.trigger.internalEvent.eventType)_must_be_emitted_before"): list.Contains(_emittedBeforeLists["\(i)"], inst.trigger.internalEvent.eventType) & true
@@ -296,9 +303,10 @@ import (
 				let _intFields = [for k, _ in inst.trigger.internalEvent.fields {k}]
 				for fieldName, fieldType in inst.command.fields {
 					let inInt = list.Contains(_intFields, fieldName)
+					let inConsumed = list.Contains(_consumedFields, fieldName)
 					let isComputed = list.Contains(_computedFields, fieldName)
 					let inMapping = list.Contains(_mappedFields, fieldName)
-					("automation_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inInt | isComputed | inMapping) & true
+					("automation_\(inst.name)_field_\(fieldName)_must_come_from_trigger"): (inInt | inConsumed | isComputed | inMapping) & true
 
 					// Type validation (skip computed)
 					if isComputed == false && inMapping == true {
@@ -310,33 +318,13 @@ import (
 				}
 			}
 
-			// Collect consumed view readModel fields
+			// Collect consumed readModel fields (ReadModel has _schema directly, not nested in readModel)
 			let _consumedViewFields = [
 				for v in inst.consumes
-				for k, _ in v.readModel.fields {k},
+				for k, _ in v._schema {k},
 			]
 
-			// Validate consumed view params exist in trigger fields (type match)
-			if inst.trigger.kind == "internalEvent" {
-				let _triggerFields = [for k, _ in inst.trigger.internalEvent.fields {k}]
-				for v in inst.consumes {
-					for paramName, paramType in v.endpoint.params {
-						("automation_\(inst.name)_consumed_\(v.name)_param_\(paramName)_must_be_in_trigger"): list.Contains(_triggerFields, paramName) & true
-						("automation_\(inst.name)_consumed_\(v.name)_param_\(paramName)_type"): inst.trigger.internalEvent.fields[paramName] & paramType
-					}
-				}
-			}
-			if inst.trigger.kind == "externalEvent" {
-				let _triggerFields = [for k, _ in inst.trigger.externalEvent.fields {k}]
-				for v in inst.consumes {
-					for paramName, paramType in v.endpoint.params {
-						("automation_\(inst.name)_consumed_\(v.name)_param_\(paramName)_must_be_in_trigger"): list.Contains(_triggerFields, paramName) & true
-						("automation_\(inst.name)_consumed_\(v.name)_param_\(paramName)_type"): inst.trigger.externalEvent.fields[paramName] & paramType
-					}
-				}
-			}
-
-			// Validate emitted event fields come from command, consumed views, mapping, or computed
+			// Validate emitted event fields come from command, consumed readModels, mapping, or computed
 			for e in inst.emits {
 				let _cmdFields = [for k, _ in inst.command.fields {k}]
 				let _mappedFields = [for k, _ in e.mapping {k}]
@@ -430,7 +418,7 @@ import (
 			]
 			let _rmMappedFields = [for k, _ in inst.readModel.mapping {k}]
 			let _rmComputedFields = [for k, _ in inst.readModel.computed {k}]
-			for fieldName, _ in inst.readModel.fields {
+			for fieldName, _ in inst.readModel._schema {
 				let inEvents = list.Contains(_queriedEventFieldNames, fieldName)
 				let inMapping = list.Contains(_rmMappedFields, fieldName)
 				let isComputed = list.Contains(_rmComputedFields, fieldName)
@@ -465,7 +453,7 @@ import (
 				// Type must match between readModel field and event field (skip dotted paths - validated in Go)
 				let _isDotted = strings.Contains(mappedName, ".")
 				if !_isDotted {
-					("view_\(inst.name)_mapping_\(mappedName)_type"): inst.readModel.fields[mappedName] & events[m.event.eventType].fields[m.field]
+					("view_\(inst.name)_mapping_\(mappedName)_type"): inst.readModel._schema[mappedName] & events[m.event.eventType].fields[m.field]
 				}
 			}
 
@@ -476,12 +464,14 @@ import (
 				}
 			}
 
-			// Validate endpoint path params exist in params
-			if strings.Contains(inst.endpoint.path, "{") {
-				let _pathParams = [for m in regexp.FindAllSubmatch("\\{(\\w+)\\}", inst.endpoint.path, -1) {m[1]}]
-				let _endpointParams = [for k, _ in inst.endpoint.params {k}]
-				for p in _pathParams {
-					("view_\(inst.name)_endpoint_path_param_\(p)_must_be_in_params"): list.Contains(_endpointParams, p) & true
+			// Validate endpoint path params exist in params (only if endpoint defined)
+			if inst.endpoint != _|_ {
+				if strings.Contains(inst.endpoint.path, "{") {
+					let _pathParams = [for m in regexp.FindAllSubmatch("\\{(\\w+)\\}", inst.endpoint.path, -1) {m[1]}]
+					let _endpointParams = [for k, _ in inst.endpoint.params {k}]
+					for p in _pathParams {
+						("view_\(inst.name)_endpoint_path_param_\(p)_must_be_in_params"): list.Contains(_endpointParams, p) & true
+					}
 				}
 			}
 		}

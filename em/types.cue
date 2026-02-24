@@ -217,7 +217,15 @@ package em
 #ReadModel: {
 	name!:        string
 	cardinality!: "single" | "table"
-	fields!:      #Field
+	persistence!: "transient" | "persistent" | "transient"
+	if cardinality == "single" {
+		fields!:  #Field
+		_schema: fields
+	}
+	if cardinality == "table" {
+		columns!: #Field
+		_schema:  columns
+	}
 	// Fields derived/aggregated from events (no type check)
 	computed: {[string]: #ComputedField} | *{}
 	// Fields renamed from event fields (type must match)

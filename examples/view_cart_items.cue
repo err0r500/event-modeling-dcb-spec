@@ -9,24 +9,33 @@ ViewCartItems: s.#ViewSlice & {
 	name:  "ViewCartItems"
 	actor: _actors.User
 
-    image: "./mockups/one_item_cart.png"
+	image: "./mockups/one_item_cart.png"
 
 	endpoint: s.#Endpoint & {
-        verb: "GET"
+		verb: "GET"
 		params: {
 			cartId: string
 		}
+		auth: {userId: string}
 		path: "/carts/{cartId}"
 	}
 
 	query: {
 		items: [
-        {
-			types: [_events.CartCreated, _events.ItemAdded, _events.ItemRemoved, _events.CartCleared]
-			tags: [{tag: _tags.cart_id, value: endpoint.params.cartId}]
-		},
-        {types: [_events.ItemAdded], tags: []},
-        ]
+			{
+				types: [_events.CartCreated, _events.CartCleared]
+				tags: [
+					{tag: _tags.cart_id, value: endpoint.params.cartId},
+					{tag: _tags.shopper_id, value: endpoint.auth.userId},
+				]
+			},
+			{
+				types: [_events.ItemAdded, _events.ItemRemoved]
+				tags: [
+					{tag: _tags.cart_id, value: endpoint.params.cartId},
+				]
+			},
+		]
 	}
 
 	readModel: s.#ReadModel & {

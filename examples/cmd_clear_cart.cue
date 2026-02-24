@@ -13,13 +13,18 @@ ClearCart: em.#ChangeSlice & {
 			verb: "DELETE"
 			params: {cartId: string}
 			path: "/carts/{cartId}/items"
+            auth: {userId: string}
 		}
 	}
 
 	command: {
 		fields: {
 			cartId: string
+            shopperId: string
 		}
+
+        mapping: {shopperId: trigger.endpoint.auth.userId}
+
 		query: {
 			items: [{
 				types: [_events.CartCreated]

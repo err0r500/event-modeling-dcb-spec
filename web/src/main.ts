@@ -42,12 +42,18 @@ let eventTypeToEvents: Map<string, string[]> = new Map();
 let eventTypeToCommands: Map<string, string[]> = new Map();
 let eventTypeToReadModels: Map<string, string[]> = new Map();
 let eventTypeToWatchers: Map<string, string[]> = new Map();
+// Automation -> consumed read model names (for automation highlighting)
+let automationToConsumedReadModels: Map<string, string[]> = new Map();
+// Read model name -> object IDs (for lookup)
+let readModelNameToIds: Map<string, string[]> = new Map();
 
 function buildEventTypeMappings(objs: CanvasObject[]): void {
     eventTypeToEvents = new Map();
     eventTypeToCommands = new Map();
     eventTypeToReadModels = new Map();
     eventTypeToWatchers = new Map();
+    automationToConsumedReadModels = new Map();
+    readModelNameToIds = new Map();
 
     for (const obj of objs) {
         if (obj.type === 'event' && obj.metadata?.eventType) {
@@ -60,17 +66,36 @@ function buildEventTypeMappings(objs: CanvasObject[]): void {
                 if (!eventTypeToCommands.has(t)) eventTypeToCommands.set(t, []);
                 eventTypeToCommands.get(t)!.push(obj.id);
             }
-        }
-        if (obj.type === 'read-model' && obj.metadata?.queriesTypes) {
-            for (const t of obj.metadata.queriesTypes as string[]) {
-                if (!eventTypeToReadModels.has(t)) eventTypeToReadModels.set(t, []);
-                eventTypeToReadModels.get(t)!.push(obj.id);
+            // Track automation consumes for commands in automation slices
+            if (obj.metadata?.consumes) {
+                const names = (obj.metadata.consumes as { name: string }[]).map(c => c.name);
+                automationToConsumedReadModels.set(obj.id, names);
             }
         }
-        if (obj.type === 'watcher' && obj.metadata?.eventType) {
-            const t = obj.metadata.eventType as string;
-            if (!eventTypeToWatchers.has(t)) eventTypeToWatchers.set(t, []);
-            eventTypeToWatchers.get(t)!.push(obj.id);
+        if (obj.type === 'read-model') {
+            // Build name -> IDs map
+            const rmName = obj.label;
+            if (!readModelNameToIds.has(rmName)) readModelNameToIds.set(rmName, []);
+            readModelNameToIds.get(rmName)!.push(obj.id);
+
+            if (obj.metadata?.queriesTypes) {
+                for (const t of obj.metadata.queriesTypes as string[]) {
+                    if (!eventTypeToReadModels.has(t)) eventTypeToReadModels.set(t, []);
+                    eventTypeToReadModels.get(t)!.push(obj.id);
+                }
+            }
+        }
+        if (obj.type === 'watcher') {
+            const t = obj.metadata?.eventType as string;
+            if (t) {
+                if (!eventTypeToWatchers.has(t)) eventTypeToWatchers.set(t, []);
+                eventTypeToWatchers.get(t)!.push(obj.id);
+            }
+            // Track automation consumes for watchers
+            if (obj.metadata?.consumes) {
+                const names = (obj.metadata.consumes as { name: string }[]).map(c => c.name);
+                automationToConsumedReadModels.set(obj.id, names);
+            }
         }
     }
 }
@@ -91,12 +116,22 @@ function computeHighlightSet(obj: CanvasObject | null): string[] | null {
         const eventType = obj.metadata.eventType as string;
         ids.push(obj.id);
         ids.push(...(eventTypeToEvents.get(eventType) || []));
+        // Also highlight consumed read models
+        const consumedNames = automationToConsumedReadModels.get(obj.id) || [];
+        for (const name of consumedNames) {
+            ids.push(...(readModelNameToIds.get(name) || []));
+        }
     } else if (obj.type === 'command') {
         ids.push(obj.id);
         if (Array.isArray(obj.metadata?.queriesTypes) && obj.metadata.queriesTypes.length > 0) {
             for (const t of obj.metadata.queriesTypes as string[]) {
                 ids.push(...(eventTypeToEvents.get(t) || []));
             }
+        }
+        // Highlight consumed read models for automation commands
+        const consumedNames = automationToConsumedReadModels.get(obj.id) || [];
+        for (const name of consumedNames) {
+            ids.push(...(readModelNameToIds.get(name) || []));
         }
     } else if (obj.type === 'read-model' && obj.metadata?.queriesTypes) {
         ids.push(obj.id);
@@ -323,6 +358,10 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
         // Endpoint details
         if (obj.type === 'endpoint') {
             content = `${obj.metadata.verb} ${obj.metadata.path}`;
+            if (obj.metadata.auth) {
+                const auth = obj.metadata.auth as Record<string, string>;
+                content += `\n\nAuth:\n${Object.entries(auth).map(([k, v]) => `  ${k}: ${v}`).join('\n')}`;
+            }
             if (obj.metadata.params) {
                 const params = obj.metadata.params as Record<string, string>;
                 content += `\n\nPath params:\n${Object.entries(params).map(([k, v]) => `  {${k}}: ${v}`).join('\n')}`;
@@ -341,6 +380,10 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
             if (obj.metadata.query) {
                 const queryStr = formatQuery(obj.metadata.query as any[]);
                 if (queryStr) content += `\n\nQuery:\n${queryStr}`;
+            }
+            if (obj.metadata.consumes && (obj.metadata.consumes as any[]).length > 0) {
+                const consumes = obj.metadata.consumes as { name: string }[];
+                content += `\n\nConsumes:\n${consumes.map(c => `  ${c.name}`).join('\n')}`;
             }
         }
         // Read model details
@@ -385,6 +428,10 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
             if (obj.metadata.fields) {
                 const fields = obj.metadata.fields as Record<string, string>;
                 content += `\n\nFields:\n${Object.entries(fields).map(([k, v]) => `  ${k}: ${v}`).join('\n')}`;
+            }
+            if (obj.metadata.consumes && (obj.metadata.consumes as any[]).length > 0) {
+                const consumes = obj.metadata.consumes as { name: string }[];
+                content += `\n\nConsumes:\n${consumes.map(c => `  ${c.name}`).join('\n')}`;
             }
         }
         // Scenario details

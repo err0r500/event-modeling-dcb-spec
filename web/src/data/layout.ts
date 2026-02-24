@@ -66,7 +66,7 @@ function calcSliceWidth(slice: ChangeSlice | ViewSlice | AutomationSlice): numbe
     return Math.max(OBJECT_WIDTH, triggerW, commandW, eventsW, scenarioW);
   } else {
     const vs = slice as ViewSlice;
-    const endpointW = textWidth(`${vs.endpoint.verb} ${vs.endpoint.path}`);
+    const endpointW = vs.endpoint ? textWidth(`${vs.endpoint.verb} ${vs.endpoint.path}`) : 0;
     const rmW = textWidth(vs.readModel.name);
     return Math.max(OBJECT_WIDTH, endpointW, rmW, scenarioW);
   }
@@ -471,7 +471,7 @@ function addAutomationSlice(
       height: 50,
       label: int.eventType,
       color: COLORS.watcher,
-      metadata: { eventType: int.eventType, fields: int.fields },
+      metadata: { eventType: int.eventType, fields: int.fields, consumes: slice.consumes },
       sliceIndex: colIndex,
     });
   } else if (slice.trigger.kind === 'externalEvent') {
@@ -500,7 +500,7 @@ function addAutomationSlice(
       height: 50,
       label: ext.name,
       color: COLORS.watcher,
-      metadata: { eventType: ext.name, fields: ext.fields, isExternal: true },
+      metadata: { eventType: ext.name, fields: ext.fields, isExternal: true, consumes: slice.consumes },
       sliceIndex: colIndex,
     });
   }
@@ -522,7 +522,7 @@ function addAutomationSlice(
     height: OBJECT_HEIGHT,
     label: slice.name,
     color: COLORS.command,
-    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, scenarios: slice.scenarios?.length || 0 },
+    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, scenarios: slice.scenarios?.length || 0, consumes: slice.consumes },
     sliceIndex: colIndex,
   });
 
@@ -635,7 +635,7 @@ function addChangeSlice(
       height: 50,
       label: endpointLabel,
       color: COLORS.endpoint,
-      metadata: { verb: ep.verb, path: ep.path, params: ep.params, body: ep.body },
+      metadata: { verb: ep.verb, path: ep.path, params: ep.params, body: ep.body, auth: ep.auth },
       sliceIndex: colIndex,
     });
   } else if (slice.trigger.kind === 'externalEvent') {
@@ -785,21 +785,22 @@ function addViewSlice(
     });
   }
 
-  const endpointLabel = `${slice.endpoint.verb} ${slice.endpoint.path}`;
-
-  // Endpoint (at bottom of actor lane)
-  objects.push({
-    id: `endpoint-${colIndex}`,
-    type: 'endpoint',
-    x,
-    y: endpointY,
-    width: colWidth,
-    height: 50,
-    label: endpointLabel,
-    color: COLORS.endpoint,
-    metadata: { verb: slice.endpoint.verb, path: slice.endpoint.path, params: slice.endpoint.params, body: slice.endpoint.body },
-    sliceIndex: colIndex,
-  });
+  // Endpoint (at bottom of actor lane) - only if defined
+  if (slice.endpoint) {
+    const endpointLabel = `${slice.endpoint.verb} ${slice.endpoint.path}`;
+    objects.push({
+      id: `endpoint-${colIndex}`,
+      type: 'endpoint',
+      x,
+      y: endpointY,
+      width: colWidth,
+      height: 50,
+      label: endpointLabel,
+      color: COLORS.endpoint,
+      metadata: { verb: slice.endpoint.verb, path: slice.endpoint.path, params: slice.endpoint.params, body: slice.endpoint.body, auth: slice.endpoint.auth },
+      sliceIndex: colIndex,
+    });
+  }
 
   // Read model - extract queried event types
   const queriedTypes: string[] = [];

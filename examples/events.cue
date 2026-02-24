@@ -7,22 +7,25 @@ _events: {
 	CartCreated: {
 		fields: {
 			cartId: string
+			shopperId: string
 		}
-		tags: [_tags.cart_id]
+		tags: [_tags.cart_id, _tags.shopper_id]
 	}
 
 	CartDeleted: {
 		fields: {
 			cartId: string
+			shopperId: string
 		}
-		tags: [_tags.cart_id]
+		tags: [_tags.cart_id, _tags.shopper_id]
 	}
 
 	CartCleared: {
 		fields: {
 			cartId: string
+            shopperId: string
 		}
-		tags: [_tags.cart_id]
+		tags: [_tags.cart_id, _tags.shopper_id]
 	}
 
 	ItemAdded: {
@@ -57,8 +60,9 @@ _events: {
 	CartClosed: {
 		fields: {
 			cartId: string
+            shopperId: string
 		}
-		tags: [_tags.cart_id]
+		tags: [_tags.cart_id, _tags.shopper_id]
 	}
 
 	InventoryChanged: {
@@ -81,7 +85,8 @@ _events: {
 	CartSubmitted: {
 		fields: {
 			cartId: string
+            shopperId: string
 		}
-		tags: [_tags.cart_id]
+		tags: [_tags.cart_id, _tags.shopper_id]
 	}
 }

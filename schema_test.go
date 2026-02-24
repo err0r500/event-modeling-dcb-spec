@@ -987,6 +987,151 @@ board: em.#Board & {
 	assertInvalidGo(t, src, "items.itemId", "must match source event field type")
 }
 
+func TestValidFieldsFromAuth(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		OrderPlaced: {eventType: "OrderPlaced", fields: {userId: string, amount: int}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "PlaceOrder"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {}
+					body: {amount: int}
+					auth: {userId: string}
+					path: "/orders"
+				}}
+				command: {
+					name: "PlaceOrder"
+					fields: {
+						userId: string
+						amount: int
+					}
+					query: {items: []}
+				}
+				emits: [events.OrderPlaced]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertValid(t, src)
+}
+
+func TestInvalidFieldFromAuthTypeMismatch(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		OrderPlaced: {eventType: "OrderPlaced", fields: {userId: string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "PlaceOrder"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {}
+					body: {}
+					auth: {userId: int}  // int, but command expects string
+					path: "/orders"
+				}}
+				command: {
+					name: "PlaceOrder"
+					fields: {
+						userId: string
+					}
+					query: {items: []}
+				}
+				emits: [events.OrderPlaced]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertInvalid(t, src, "slice_PlaceOrder_field_userId_type")
+}
+
+func TestInvalidFieldNotInAnyEndpointSource(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		OrderPlaced: {eventType: "OrderPlaced", fields: {userId: string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "PlaceOrder"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {}
+					body: {}
+					auth: {}
+					path: "/orders"
+				}}
+				command: {
+					name: "PlaceOrder"
+					fields: {
+						userId: string  // not in params, body, or auth
+					}
+					query: {items: []}
+				}
+				emits: [events.OrderPlaced]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertInvalid(t, src, "slice_PlaceOrder_field_userId_must_come_from_trigger")
+}
+
 // Helper functions
 
 // buildResult holds the CUE value and any errors from loading/building

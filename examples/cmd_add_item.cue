@@ -17,13 +17,16 @@ AddItem: em.#ChangeSlice & {
 				imageURL:    string
 				itemId:      string
 				price:       int
+				quantity:    int
 			}
+			auth: {userId: string}
 			path: "/carts/{cartId}/items"
 		}
 	}
 
 	command: em.#Command & {
 		fields: {
+			shopperId:   string
 			cartId:      string
 			productId:   string
 			quantity:    int
@@ -33,15 +36,25 @@ AddItem: em.#ChangeSlice & {
 			price:       int
 		}
 
-		mapping: {image: trigger.endpoint.body.imageURL}
-
-		computed: {quantity: "default quantity"}
+		mapping: {
+			image:     trigger.endpoint.body.imageURL
+			shopperId: trigger.endpoint.auth.userId
+		}
 
 		query: {
 			items: [
 				{
-					types: [_events.CartCreated, _events.ItemAdded]
-					tags: [{tag: _tags.cart_id, value: fields.cartId}]
+					types: [_events.CartCreated]
+					tags: [
+						{tag: _tags.cart_id, value: fields.cartId},
+						{tag: _tags.shopper_id, value: fields.shopperId},
+					]
+				},
+				{
+					types: [_events.ItemAdded]
+					tags: [
+						{tag: _tags.cart_id, value: fields.cartId},
+					]
 				},
 				{
 					types: [_events.InventoryChanged]
@@ -70,7 +83,7 @@ AddItem: em.#ChangeSlice & {
 			given: [_events.CartCreated & {fields: {cartId: "abc"}}]
 			when: {cartId: "abc"}
 			then: {
-				error:   "already created"
+				error: "already created"
 			}
 		},
 		{
@@ -80,7 +93,7 @@ AddItem: em.#ChangeSlice & {
 			]
 			when: {cartId: "abc"}
 			then: {
-				error:   "conflict"
+				error: "conflict"
 			}
 		},
 		{
@@ -93,7 +106,7 @@ AddItem: em.#ChangeSlice & {
 			]
 			when: {}
 			then: {
-				error:   "can't add more than 3 items"
+				error: "can't add more than 3 items"
 			}
 		},
 		{
@@ -104,7 +117,7 @@ AddItem: em.#ChangeSlice & {
 			]
 			when: {}
 			then: {
-                error: "woops"
+				error: "woops"
 			}
 		},
 	]

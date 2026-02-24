@@ -159,4 +159,23 @@ return {
   s("eventinstance", {
     t("{event: _events."), i(1), t(", values: {"), i(2), t("}}"),
   }),
+
+  -- Command field mapping from endpoint
+  s("cmdmap", {
+    i(1, "field"), t(": trigger.endpoint."), c(2, {
+      t("body."),
+      t("params."),
+      t("auth."),
+    }), i(3, "source"),
+  }),
+
+  -- Command computed field
+  s("cmdcomputed", {
+    i(1, "field"), t(': "'), i(2, "computation description"), t('"'),
+  }),
+
+  -- ReadModel field mapping from event
+  s("viewmap", {
+    t('"'), i(1, "field.path"), t('": {event: _events.'), i(2, "Event"), t(', field: "'), i(3, "eventField"), t('"}'),
+  }),
 }

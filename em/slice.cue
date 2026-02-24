@@ -81,20 +81,26 @@ package em
 	// Optional relative path to mockup/screenshot
 	image?: string
 
-	endpoint!: #Endpoint
+	endpoint?: #Endpoint
 
 	readModel!: #ReadModel
 
 	// DCB query for events to build this view
 	query!: #DCBQuery
 
-	// View scenarios with type-checked expect against readModel.fields
+	// View scenarios with type-checked expect against readModel.fields/columns
 	// name, given, query, expect
+	// expect is a list for table cardinality, single struct for single cardinality
 	scenarios!: [...{
-		name:   string
-		given:  [...#EventInstance]
-		query:  #Field | *{}
-		expect: readModel.fields
+		name:  string
+		given: [...#EventInstance]
+		query: #Field | *{}
+		if readModel.cardinality == "single" {
+			expect: readModel.fields
+		}
+		if readModel.cardinality == "table" {
+			expect: [...readModel.columns]
+		}
 	}]
 }
 
@@ -120,8 +126,8 @@ package em
 
 	trigger!: #AutomationTrigger
 
-	// Views consumed by this automation - their readModel.fields available to command
-	consumes: [...#ViewSlice] | *[]
+	// ReadModels consumed by this automation - their fields available to command
+	consumes: [...#ReadModel] | *[]
 
 	command!: #Command & {name: name}
 
