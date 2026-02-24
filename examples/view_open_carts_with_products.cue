@@ -66,6 +66,15 @@ OpenCartsWithProducts: em.#ViewSlice & {
 			]
 		},
 		{
+			name: "item added then removed"
+			given: [
+				_events.CartCreated,
+				_events.ItemAdded,
+				_events.ItemRemoved,
+			]
+			expect: []
+		},
+		{
 			name: "cart cleared"
 			given: [
 				_events.CartCreated,

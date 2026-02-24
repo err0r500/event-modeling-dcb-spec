@@ -63,7 +63,11 @@ ViewCartItems: s.#ViewSlice & {
 	scenarios: [
 		{
 			name: "Ex: Empty cart"
-			given: [_events.CartCreated, _events.ItemAdded]
+			given: [
+				_events.CartCreated & {fields: cartId: "abc"},
+				_events.ItemAdded,
+				_events.ItemRemoved,
+			]
 			query: {cartId: "abc"}
 			expect: {
 				cartId: "abc"

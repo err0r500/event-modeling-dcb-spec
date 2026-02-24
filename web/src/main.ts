@@ -470,8 +470,22 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
 
     tooltip.textContent = content;
     tooltip.style.display = 'block';
+
+    // Position tooltip, ensuring it stays within viewport
+    const tooltipRect = tooltip.getBoundingClientRect();
+    let top = e.clientY + 12;
+
+    // If tooltip would go below viewport, show above cursor
+    if (top + tooltipRect.height > window.innerHeight) {
+        top = e.clientY - tooltipRect.height - 12;
+    }
+    // Clamp to top of viewport if still out of bounds
+    if (top < 0) {
+        top = 0;
+    }
+
     tooltip.style.left = `${e.clientX + 12}px`;
-    tooltip.style.top = `${e.clientY + 12}px`;
+    tooltip.style.top = `${top}px`;
 }
 
 function hideTooltip(): void {
