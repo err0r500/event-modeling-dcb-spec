@@ -365,6 +365,12 @@ func validateActors(board cue.Value) []string {
 			continue
 		}
 
+		// Automation slices don't have actors
+		sliceType := getString(inst, "type")
+		if sliceType == "automation" {
+			continue
+		}
+
 		sliceName := getString(inst, "name")
 		actorVal := inst.LookupPath(cue.ParsePath("actor"))
 

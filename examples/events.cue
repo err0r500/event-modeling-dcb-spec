@@ -35,10 +35,18 @@ _events: {
 			price:       int
 			quantity:    int
 		}
-		tags: [_tags.item_id, _tags.cart_id]
+		tags: [_tags.item_id, _tags.cart_id, _tags.product_id]
 	}
 
 	ItemRemoved: {
+		fields: {
+			cartId: string
+			itemId: string
+		}
+		tags: [_tags.item_id, _tags.cart_id]
+	}
+
+	ItemArchived: {
 		fields: {
 			cartId: string
 			itemId: string
@@ -57,6 +65,15 @@ _events: {
 		fields: {
 			productId: string
 			inventory: uint
+		}
+		tags: [_tags.product_id]
+	}
+
+	PriceChanged: {
+		fields: {
+			productId: string
+			oldPrice: uint
+			newPrice: uint
 		}
 		tags: [_tags.product_id]
 	}

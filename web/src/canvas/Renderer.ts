@@ -142,6 +142,8 @@ export class Renderer {
                 this.drawScenario(obj);
             } else if (obj.type === 'story') {
                 this.drawStory(obj);
+            } else if (obj.type === 'watcher') {
+                this.drawWatcher(obj);
             } else {
                 this.drawObject(obj);
             }
@@ -196,7 +198,7 @@ export class Renderer {
 
         // Label on left
         if (this.viewport.zoom > 0.2) {
-            const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+            const zoomFactor = Math.max(1, Math.pow(this.viewport.zoom, 0.5));
             ctx.fillStyle = '#6c7086';
             ctx.font = `${12 / zoomFactor}px system-ui`;
             ctx.textAlign = 'left';
@@ -221,8 +223,8 @@ export class Renderer {
 
         // Label centered
         if (this.viewport.zoom > 0.15) {
-            const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
-            ctx.fillStyle = '#89b4fa'; // blue color for chapters
+            const zoomFactor = Math.max(1, Math.pow(this.viewport.zoom, 0.5));
+            ctx.fillStyle = '#89b4fa';
             ctx.font = `600 ${14 / zoomFactor}px system-ui`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -486,6 +488,49 @@ export class Renderer {
         }
     }
 
+    private drawWatcher(obj: CanvasObject): void {
+        const ctx = this.ctx;
+        const isHovered = obj.id === this.hoveredId;
+        const isDimmed = this.highlightSet !== null && !this.highlightSet.has(obj.id);
+
+        if (isDimmed) {
+            ctx.globalAlpha = 0.2;
+        }
+
+        if (isHovered) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 10 / this.viewport.zoom;
+            ctx.shadowOffsetY = 4 / this.viewport.zoom;
+        }
+
+        // Simple white rounded rectangle
+        ctx.fillStyle = obj.color;
+        ctx.strokeStyle = isHovered ? '#f5e0dc' : '#585b70';
+        ctx.lineWidth = (isHovered ? 2 : 1) / this.viewport.zoom;
+
+        this.roundRect(obj.x, obj.y, obj.width, obj.height, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowColor = 'transparent';
+
+        // Label centered
+        if (this.viewport.zoom > 0.15) {
+            ctx.fillStyle = '#1e1e2e';
+            const fontSize = Math.min(13, obj.width / 8);
+            const zoomFactor = Math.pow(this.viewport.zoom, 0.5);
+            ctx.font = `400 ${fontSize / zoomFactor}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const text = this.truncateText(obj.label, obj.width - 16);
+            ctx.fillText(text, obj.x + obj.width / 2, obj.y + obj.height / 2);
+        }
+
+        if (isDimmed) {
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
     private drawObject(obj: CanvasObject): void {
         const ctx = this.ctx;
         const isHovered = obj.id === this.hoveredId;
@@ -588,6 +633,7 @@ export class Renderer {
             const readModel = sliceObjs.find(o => o.type === 'read-model');
             const command = sliceObjs.find(o => o.type === 'command');
             const endpoint = sliceObjs.find(o => o.type === 'endpoint' || o.type === 'external-event');
+            const watcher = sliceObjs.find(o => o.type === 'watcher');
             const mockup = sliceObjs.find(o => o.type === 'mockup');
             const events = sliceObjs.filter(o => o.type === 'event');
             const story = sliceObjs.find(o => o.type === 'story');
@@ -618,11 +664,33 @@ export class Renderer {
                     }
                 }
                 // No arrow for change stories (they emit events below)
+            } else if (command && endpoint && watcher && endpoint.type === 'external-event') {
+                // Automation with external event: external-event → watcher → command
+                this.drawArrow(
+                    endpoint.x + endpoint.width / 2,
+                    endpoint.y + endpoint.height,
+                    watcher.x + watcher.width / 2,
+                    watcher.y
+                );
+                this.drawArrow(
+                    watcher.x + watcher.width / 2,
+                    watcher.y + watcher.height,
+                    command.x + command.width / 2,
+                    command.y
+                );
             } else if (command && endpoint) {
                 // Change slice: arrow DOWN from endpoint → command
                 this.drawArrow(
                     endpoint.x + endpoint.width / 2,
                     endpoint.y + endpoint.height,
+                    command.x + command.width / 2,
+                    command.y
+                );
+            } else if (command && watcher) {
+                // Automation with internal event trigger: arrow DOWN from watcher → command
+                this.drawArrow(
+                    watcher.x + watcher.width / 2,
+                    watcher.y + watcher.height,
                     command.x + command.width / 2,
                     command.y
                 );

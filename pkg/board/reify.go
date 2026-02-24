@@ -23,6 +23,7 @@ func ReifyBoard(b *Board) map[string]any {
 // BoardManifest is the top-level manifest written to board.json.
 type BoardManifest struct {
 	Name     string         `json:"name"`
+	Actors   []string       `json:"actors"`
 	Contexts []ContextEntry `json:"contexts"`
 	Flow     []FlowEntry    `json:"flow"`
 	Errors   []string       `json:"errors,omitempty"`
@@ -110,6 +111,9 @@ func ReifyBoardFiles(b *Board, errors []string) (BoardManifest, map[string]map[s
 	// Extract context/chapter hierarchy
 	manifest.Contexts = extractContexts(b.Value)
 
+	// Extract actors in definition order
+	manifest.Actors = extractActors(b.Value)
+
 	return manifest, slices, images
 }
 
@@ -162,6 +166,23 @@ func extractContexts(boardVal cue.Value) []ContextEntry {
 	return contexts
 }
 
+// extractActors returns actor names in definition order from board.actors
+func extractActors(boardVal cue.Value) []string {
+	actorsVal := boardVal.LookupPath(cue.ParsePath("actors"))
+	if actorsVal.Err() != nil {
+		return nil
+	}
+	iter, err := actorsVal.Fields()
+	if err != nil {
+		return nil
+	}
+	var actors []string
+	for iter.Next() {
+		actors = append(actors, selectorLabel(iter.Selector()))
+	}
+	return actors
+}
+
 var nonAlnum = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
 // sanitizeFilename converts a name to a safe filename, deduplicating collisions.
@@ -186,6 +207,8 @@ func reifyInstant(item FlowItem) map[string]any {
 			return reifyChangeSlice(item.CUEValue)
 		case "view":
 			return reifyViewSlice(item.CUEValue)
+		case "automation":
+			return reifyAutomationSlice(item.CUEValue)
 		}
 	case "story":
 		return reifyStory(item.CUEValue)
@@ -234,6 +257,26 @@ func reifyViewSlice(v cue.Value) map[string]any {
 	return out
 }
 
+func reifyAutomationSlice(v cue.Value) map[string]any {
+	sliceName := getString(v, "name")
+	out := map[string]any{
+		"kind":      "slice",
+		"type":      "automation",
+		"name":      sliceName,
+		"trigger":   reifyTrigger(v.LookupPath(cue.ParsePath("trigger"))),
+		"command":   reifyCommand(v.LookupPath(cue.ParsePath("command"))),
+		"emits":     reifyEmits(v.LookupPath(cue.ParsePath("emits"))),
+		"scenarios": reifyGWTScenarios(v.LookupPath(cue.ParsePath("scenarios")), sliceName),
+	}
+	if img := getString(v, "image"); img != "" {
+		out["image"] = img
+	}
+	if ds := getString(v, "devstatus"); ds != "" {
+		out["devstatus"] = ds
+	}
+	return out
+}
+
 func reifyStory(v cue.Value) map[string]any {
 	out := map[string]any{
 		"kind":     "story",
@@ -267,6 +310,8 @@ func reifyTrigger(v cue.Value) map[string]any {
 		out["endpoint"] = reifyEndpoint(v.LookupPath(cue.ParsePath("endpoint")))
 	} else if kind == "externalEvent" {
 		out["externalEvent"] = reifyExternalEvent(v.LookupPath(cue.ParsePath("externalEvent")))
+	} else if kind == "internalEvent" {
+		out["internalEvent"] = reifyInternalEvent(v.LookupPath(cue.ParsePath("internalEvent")))
 	}
 	return out
 }
@@ -274,7 +319,15 @@ func reifyTrigger(v cue.Value) map[string]any {
 func reifyExternalEvent(v cue.Value) map[string]any {
 	return map[string]any{
 		"name":   getString(v, "name"),
+		"source": getString(v, "source"),
 		"fields": reifyFields(v.LookupPath(cue.ParsePath("fields"))),
+	}
+}
+
+func reifyInternalEvent(v cue.Value) map[string]any {
+	return map[string]any{
+		"eventType": getString(v, "eventType"),
+		"fields":    reifyFields(v.LookupPath(cue.ParsePath("fields"))),
 	}
 }
 

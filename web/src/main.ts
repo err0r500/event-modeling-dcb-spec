@@ -41,11 +41,13 @@ let mouseX = 0, mouseY = 0;
 let eventTypeToEvents: Map<string, string[]> = new Map();
 let eventTypeToCommands: Map<string, string[]> = new Map();
 let eventTypeToReadModels: Map<string, string[]> = new Map();
+let eventTypeToWatchers: Map<string, string[]> = new Map();
 
 function buildEventTypeMappings(objs: CanvasObject[]): void {
     eventTypeToEvents = new Map();
     eventTypeToCommands = new Map();
     eventTypeToReadModels = new Map();
+    eventTypeToWatchers = new Map();
 
     for (const obj of objs) {
         if (obj.type === 'event' && obj.metadata?.eventType) {
@@ -65,6 +67,11 @@ function buildEventTypeMappings(objs: CanvasObject[]): void {
                 eventTypeToReadModels.get(t)!.push(obj.id);
             }
         }
+        if (obj.type === 'watcher' && obj.metadata?.eventType) {
+            const t = obj.metadata.eventType as string;
+            if (!eventTypeToWatchers.has(t)) eventTypeToWatchers.set(t, []);
+            eventTypeToWatchers.get(t)!.push(obj.id);
+        }
     }
 }
 
@@ -78,6 +85,12 @@ function computeHighlightSet(obj: CanvasObject | null): string[] | null {
         ids.push(...(eventTypeToEvents.get(eventType) || []));
         ids.push(...(eventTypeToCommands.get(eventType) || []));
         ids.push(...(eventTypeToReadModels.get(eventType) || []));
+        ids.push(...(eventTypeToWatchers.get(eventType) || []));
+    } else if (obj.type === 'watcher' && obj.metadata?.eventType) {
+        // Watcher: highlight itself and all events of the same type
+        const eventType = obj.metadata.eventType as string;
+        ids.push(obj.id);
+        ids.push(...(eventTypeToEvents.get(eventType) || []));
     } else if (obj.type === 'command') {
         ids.push(obj.id);
         if (Array.isArray(obj.metadata?.queriesTypes) && obj.metadata.queriesTypes.length > 0) {
@@ -361,6 +374,14 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
         // External event details
         else if (obj.type === 'external-event') {
             content = `External Event: ${obj.metadata.name}`;
+            if (obj.metadata.fields) {
+                const fields = obj.metadata.fields as Record<string, string>;
+                content += `\n\nFields:\n${Object.entries(fields).map(([k, v]) => `  ${k}: ${v}`).join('\n')}`;
+            }
+        }
+        // Watcher details
+        else if (obj.type === 'watcher') {
+            content = `Watches: ${obj.metadata.eventType}`;
             if (obj.metadata.fields) {
                 const fields = obj.metadata.fields as Record<string, string>;
                 content += `\n\nFields:\n${Object.entries(fields).map(([k, v]) => `  ${k}: ${v}`).join('\n')}`;

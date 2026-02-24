@@ -59,6 +59,18 @@ function translateError(error: string): string {
         return `Slice '${fieldMatch[1]}': field '${fieldMatch[2]}' not in trigger`;
     }
 
+    // automation_<name>_field_<field>_must_come_from_trigger
+    const autoFieldMatch = constraint.match(/^automation_(\w+)_field_(\w+)_must_come_from_trigger$/);
+    if (autoFieldMatch) {
+        return `Automation '${autoFieldMatch[1]}': field '${autoFieldMatch[2]}' not in trigger`;
+    }
+
+    // automation_<name>_internalEvent_<event>_must_be_emitted_before
+    const autoEventMatch = constraint.match(/^automation_(\w+)_internalEvent_(\w+)_must_be_emitted_before$/);
+    if (autoEventMatch) {
+        return `Automation '${autoEventMatch[1]}': trigger event '${autoEventMatch[2]}' not emitted before`;
+    }
+
     // slice_<name>_event_<event>_must_be_emitted_before
     const emitBeforeMatch = constraint.match(/^slice_(\w+)_event_(\w+)_must_be_emitted_before$/);
     if (emitBeforeMatch) {
@@ -98,7 +110,7 @@ export async function loadBoard(): Promise<LoadedBoard> {
     if (data.errors?.length || !data.flow) {
         const translatedErrors = (data.errors || ['Invalid board data']).map(translateError);
         return {
-            manifest: { name: 'Error', contexts: [], flow: [] },
+            manifest: { name: 'Error', actors: [], contexts: [], flow: [] },
             slices: new Map(),
             error: translatedErrors.join('\n'),
         };
@@ -107,18 +119,21 @@ export async function loadBoard(): Promise<LoadedBoard> {
     const manifest: BoardManifest = data;
     const slices = new Map<string, Slice>();
 
-    // Load slice files (stories don't have files - they reference other slices)
-    const slicePromises = manifest.flow
-        .filter(entry => entry.kind === 'slice' && entry.file)
-        .map(async entry => {
+    // Load slice files in parallel, then populate Map in flow order (for deterministic actor lane ordering)
+    const sliceEntries = manifest.flow.filter(entry => entry.kind === 'slice' && entry.file);
+    const fetchResults = await Promise.all(
+        sliceEntries.map(async entry => {
             const res = await fetch(`${BOARD_PATH}/${entry.file}`);
             if (res.ok) {
-                const slice: Slice = await res.json();
-                slices.set(entry.name, slice);
+                return { name: entry.name, slice: await res.json() as Slice };
             }
-        });
-
-    await Promise.all(slicePromises);
+            return null;
+        })
+    );
+    // Insert in flow order
+    for (const result of fetchResults) {
+        if (result) slices.set(result.name, result.slice);
+    }
 
     return { manifest, slices };
 }

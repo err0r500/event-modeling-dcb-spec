@@ -5,7 +5,8 @@ package em
 // Values:
 //   "change" - command slice that emits events (writes)
 //   "view" - query slice that reads events (reads)
-#SliceType: "change" | "view"
+//   "automation" - event-triggered automation (no actor)
+#SliceType: "change" | "view" | "automation"
 
 #DevStatus: "specifying" | "todo" | "doing" | "done"
 
@@ -97,12 +98,47 @@ package em
 	}]
 }
 
-// #Slice - Union of slice types (change or view)
+// #AutomationSlice - Event-triggered automation (no actor)
+//
+// Represents an automation triggered by an event, with no user actor.
+// Renders in a dedicated automation lane.
+//
+// Fields:
+//   trigger: #AutomationTrigger - external or internal event (no endpoint)
+//   consumes: [...#ViewSlice] - views whose readModel fields are available to command
+//   command: #Command - the automation logic (fields from trigger + consumed views)
+//   emits: [...#Event] - events this automation can emit
+//   scenarios: [...#GWT] - Given/When/Then test cases
+#AutomationSlice: {
+	kind:      "slice"
+	name!:     string
+	type:      "automation"
+	devstatus: #DevStatus | *"specifying"
+
+	// Optional relative path to mockup/screenshot
+	image?: string
+
+	trigger!: #AutomationTrigger
+
+	// Views consumed by this automation - their readModel.fields available to command
+	consumes: [...#ViewSlice] | *[]
+
+	command!: #Command & {name: name}
+
+	// Events emitted by this automation
+	emits!: [...#Event]
+
+	// GWT scenarios with when validated against command.fields
+	scenarios: [...#GWT & {when: command.fields}] | *[]
+}
+
+// #Slice - Union of slice types (change, view, or automation)
 //
 // Use type field to discriminate:
 //   type: "change" -> #ChangeSlice
 //   type: "view" -> #ViewSlice
-#Slice: #ChangeSlice | #ViewSlice
+//   type: "automation" -> #AutomationSlice
+#Slice: #ChangeSlice | #ViewSlice | #AutomationSlice
 
 // #Instant - A moment in the event modeling flow
 //

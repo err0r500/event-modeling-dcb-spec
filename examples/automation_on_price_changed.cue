@@ -2,17 +2,17 @@ package examples
 
 import "github.com/err0r500/event-modeling-dcb-spec/em"
 
-ChangeInventory: em.#ChangeSlice & {
-	name: "ChangeInventory"
-
-	actor: _actors.InventoryEventBus
+OnPriceChanged: em.#AutomationSlice & {
+	name: "OnPriceChanged"
 
 	trigger: em.#ExternalEventTrigger & {
 		externalEvent: {
-			name: "InventoryChanged"
+			name: "IntegrationPriceChanged"
+            source: "Pricing Context"
 			fields: {
 				productId: string
-				inventory: int
+                oldPrice: int
+				newPrice: int
 			}
 		}
 	}
@@ -20,9 +20,11 @@ ChangeInventory: em.#ChangeSlice & {
 	command: em.#Command & {
 		fields: em.#Field & {
 			productId: string
-			inventory: int
+			oldPrice: int
+			newPrice: int
 		}
 		query: {}
 	}
-	emits: [_events.InventoryChanged]
+
+	emits: [_events.PriceChanged]
 }

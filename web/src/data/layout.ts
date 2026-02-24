@@ -1,4 +1,4 @@
-import type { CanvasObject, ChangeSlice, ViewSlice, ChangeScenario, ViewScenario, FlowEntry, ChapterEntry } from './types';
+import type { CanvasObject, ChangeSlice, ViewSlice, AutomationSlice, ChangeScenario, ViewScenario, FlowEntry, ChapterEntry } from './types';
 import type { LoadedBoard } from './loader';
 
 export interface LayoutOptions {
@@ -13,6 +13,7 @@ const COLORS = {
   'read-model': '#94e2d5', // Teal
   endpoint: '#f5c2e7',    // Pink
   'external-event': '#f9e2af', // Pale yellow
+  watcher: '#cdd6f4',     // White for automation watchers
   scenario: '#b4befe',    // Lavender
   swimlane: '#313244',    // Dark gray
   story: '#6c7086',       // Gray
@@ -22,6 +23,7 @@ const COLORS = {
 
 const LANE_HEIGHT = 110;
 const LANE_HEIGHT_WITH_IMAGE = 320;
+const AUTOMATION_LANE_HEIGHT = 70;
 const OBJECT_WIDTH = 140;
 const OBJECT_HEIGHT = 70;
 const SCENARIO_HEIGHT = 45;
@@ -35,7 +37,7 @@ function textWidth(text: string): number {
   return text.length * 8 + 20;
 }
 
-function calcSliceWidth(slice: ChangeSlice | ViewSlice): number {
+function calcSliceWidth(slice: ChangeSlice | ViewSlice | AutomationSlice): number {
   const scenarioW = Math.max(...(slice.scenarios || []).map(s => textWidth(s.name)), 0);
 
   if (slice.type === 'change') {
@@ -43,11 +45,24 @@ function calcSliceWidth(slice: ChangeSlice | ViewSlice): number {
     let triggerW = OBJECT_WIDTH;
     if (cs.trigger.kind === 'endpoint') {
       triggerW = textWidth(`${cs.trigger.endpoint.verb} ${cs.trigger.endpoint.path}`);
-    } else {
+    } else if (cs.trigger.kind === 'externalEvent') {
       triggerW = textWidth(`⚡ ${cs.trigger.externalEvent.name}`);
+    } else if (cs.trigger.kind === 'internalEvent') {
+      triggerW = textWidth(`⟲ ${cs.trigger.internalEvent.eventType}`);
     }
     const commandW = textWidth(cs.name);
     const eventsW = cs.emits.reduce((sum, e) => sum + textWidth(e.type) + 5, -5);
+    return Math.max(OBJECT_WIDTH, triggerW, commandW, eventsW, scenarioW);
+  } else if (slice.type === 'automation') {
+    const as = slice as AutomationSlice;
+    let triggerW = OBJECT_WIDTH;
+    if (as.trigger.kind === 'externalEvent') {
+      triggerW = textWidth(`⚡ ${as.trigger.externalEvent.name}`);
+    } else if (as.trigger.kind === 'internalEvent') {
+      triggerW = textWidth(as.trigger.internalEvent.eventType);
+    }
+    const commandW = textWidth(as.name);
+    const eventsW = as.emits.reduce((sum, e) => sum + textWidth(e.type) + 5, -5);
     return Math.max(OBJECT_WIDTH, triggerW, commandW, eventsW, scenarioW);
   } else {
     const vs = slice as ViewSlice;
@@ -72,7 +87,7 @@ function calcStoryWidth(entry: FlowEntry): number {
   return Math.max(STORY_WIDTH, nameW, descW, instW);
 }
 
-function calcScenariosHeight(slice: ChangeSlice | ViewSlice): number {
+function calcScenariosHeight(slice: ChangeSlice | ViewSlice | AutomationSlice): number {
   return (slice.scenarios?.length || 0) * (SCENARIO_HEIGHT + 5) + 10;
 }
 
@@ -84,19 +99,30 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
   const flowIndices = options?.flowIndices;
   const chapters = options?.chapters || [];
 
-  // Collect unique actors and check which have images (only from visible slices)
-  const actors = new Set<string>();
+  // Use actors from manifest (definition order), filter to those with visible slices
+  // Note: automation slices have no actor, but external event triggers create pseudo-actor lanes
+  const visibleActors = new Set<string>();
   const actorHasImage = new Map<string, boolean>();
+  const externalEventLanes = new Set<string>(); // External event sources as lanes
   for (const [name, slice] of slices.entries()) {
-    // Find if this slice is in visible flow indices
     const entry = manifest.flow.find(e => e.name === name);
     if (flowIndices && entry && !flowIndices.has(entry.index)) continue;
-    actors.add(slice.actor);
-    if (slice.image) {
-      actorHasImage.set(slice.actor, true);
+    if (slice.type === 'automation') {
+      const as = slice as AutomationSlice;
+      if (as.trigger.kind === 'externalEvent') {
+        externalEventLanes.add(as.trigger.externalEvent.source);
+      }
+    } else if ('actor' in slice) {
+      visibleActors.add(slice.actor);
+      if (slice.image) {
+        actorHasImage.set(slice.actor, true);
+      }
     }
   }
-  const actorList = Array.from(actors);
+  // Preserve manifest.actors order, but only include visible actors
+  const actorList = manifest.actors.filter(a => visibleActors.has(a));
+  // External event lanes come after actors
+  const externalEventList = Array.from(externalEventLanes);
 
   // Calculate max scenarios height (only from visible slices)
   let maxScenariosHeight = LANE_HEIGHT;
@@ -104,6 +130,21 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     const entry = manifest.flow.find(e => e.name === name);
     if (flowIndices && entry && !flowIndices.has(entry.index)) continue;
     maxScenariosHeight = Math.max(maxScenariosHeight, calcScenariosHeight(slice));
+  }
+
+  // Check if any slice has internal event trigger or is automation (for automation lane)
+  let hasAutomationLane = false;
+  for (const [name, slice] of slices.entries()) {
+    const entry = manifest.flow.find(e => e.name === name);
+    if (flowIndices && entry && !flowIndices.has(entry.index)) continue;
+    if (slice.type === 'automation') {
+      hasAutomationLane = true;
+      break;
+    }
+    if (slice.type === 'change' && (slice as ChangeSlice).trigger.kind === 'internalEvent') {
+      hasAutomationLane = true;
+      break;
+    }
   }
 
   // Calculate Y positions - chapter header at very top, then slice names
@@ -118,7 +159,20 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     actorLaneHeight[actor] = height;
     currentY += height;
   }
-  const commandY = currentY;
+  // External event lanes (for automation triggers)
+  const externalEventLaneY: Record<string, number> = {};
+  for (const extEvent of externalEventList) {
+    externalEventLaneY[extEvent] = currentY;
+    actorLaneY[extEvent] = currentY; // Also add to actorLaneY for compatibility
+    actorLaneHeight[extEvent] = AUTOMATION_LANE_HEIGHT;
+    currentY += AUTOMATION_LANE_HEIGHT;
+  }
+  // Automation lane (only if internal event triggers exist)
+  const automationY = hasAutomationLane ? currentY + 10 : -1;
+  if (hasAutomationLane) {
+    currentY += AUTOMATION_LANE_HEIGHT;
+  }
+  const commandY = currentY + 30; // margin after actor/automation lanes
   currentY += LANE_HEIGHT;
   const eventY = currentY;
   currentY += LANE_HEIGHT;
@@ -203,6 +257,34 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     });
   }
 
+  // External event lanes (external systems that trigger automations)
+  for (const extEvent of externalEventList) {
+    objects.push({
+      id: `lane-external-${extEvent}`,
+      type: 'swimlane',
+      x: 0,
+      y: externalEventLaneY[extEvent] - 10,
+      width: totalWidth,
+      height: AUTOMATION_LANE_HEIGHT,
+      label: `⚡ ${extEvent}`,
+      color: COLORS.swimlane,
+    });
+  }
+
+  // Automation lane
+  if (hasAutomationLane) {
+    objects.push({
+      id: 'lane-automation',
+      type: 'swimlane',
+      x: 0,
+      y: automationY - 10,
+      width: totalWidth,
+      height: AUTOMATION_LANE_HEIGHT,
+      label: 'Automations',
+      color: COLORS.swimlane,
+    });
+  }
+
   for (const lane of [
     { id: 'command', label: 'Commands / Read Models', y: commandY - 10 },
     { id: 'event', label: 'Events', y: eventY - 10 },
@@ -229,18 +311,22 @@ export function layoutBoard(board: LoadedBoard, options?: LayoutOptions): Canvas
     if (entry.kind === 'story') {
       // Find referenced slice to get actor for image placement
       const refSlice = entry.sliceRef ? slices.get(entry.sliceRef) : null;
-      const storyActorY = refSlice ? actorLaneY[refSlice.actor] : null;
-      const storyActorHeight = refSlice ? actorLaneHeight[refSlice.actor] : null;
+      const storyActorY = refSlice && refSlice.type !== 'automation' && 'actor' in refSlice ? actorLaneY[refSlice.actor] : null;
+      const storyActorHeight = refSlice && refSlice.type !== 'automation' && 'actor' in refSlice ? actorLaneHeight[refSlice.actor] : null;
       addStory(objects, entry, colX, colW, colIndex, sliceNameY, commandY, eventY, storyActorY, storyActorHeight, refSlice?.type);
     } else {
       const slice = slices.get(entry.name);
       if (!slice) continue;
 
-      const actorY = actorLaneY[slice.actor];
-      const laneHeight = actorLaneHeight[slice.actor];
-      if (slice.type === 'change') {
-        addChangeSlice(objects, slice as ChangeSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY, maxScenariosHeight);
+      if (slice.type === 'automation') {
+        addAutomationSlice(objects, slice as AutomationSlice, colX, colW, colIndex, sliceNameY, automationY, externalEventLaneY, commandY, eventY, scenarioY, maxScenariosHeight);
+      } else if (slice.type === 'change') {
+        const actorY = actorLaneY[(slice as ChangeSlice).actor];
+        const laneHeight = actorLaneHeight[(slice as ChangeSlice).actor];
+        addChangeSlice(objects, slice as ChangeSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, automationY, commandY, eventY, scenarioY, maxScenariosHeight);
       } else {
+        const actorY = actorLaneY[(slice as ViewSlice).actor];
+        const laneHeight = actorLaneHeight[(slice as ViewSlice).actor];
         addViewSlice(objects, slice as ViewSlice, colX, colW, colIndex, sliceNameY, actorY, laneHeight, commandY, eventY, scenarioY, maxScenariosHeight);
       }
     }
@@ -260,7 +346,7 @@ function addStory(
   eventY: number,
   actorY: number | null,
   actorLaneHeight: number | null,
-  sliceType: 'change' | 'view' | undefined
+  sliceType: 'change' | 'view' | 'automation' | undefined
 ): void {
   // Slice name at top (story name)
   objects.push({
@@ -328,6 +414,153 @@ function addStory(
   }
 }
 
+function addAutomationSlice(
+  objects: CanvasObject[],
+  slice: AutomationSlice,
+  x: number,
+  colWidth: number,
+  colIndex: number,
+  sliceNameY: number,
+  automationY: number,
+  externalEventLaneY: Record<string, number>,
+  commandY: number,
+  eventY: number,
+  scenarioY: number,
+  maxScenariosHeight: number
+): void {
+  // Slice border (full column)
+  const borderTop = sliceNameY - 5;
+  const borderBottom = scenarioY + maxScenariosHeight;
+  objects.push({
+    id: `slice-border-${colIndex}`,
+    type: 'slice-border',
+    x: x - 5,
+    y: borderTop,
+    width: colWidth + 10,
+    height: borderBottom - borderTop,
+    label: '',
+    color: '#cdd6f4',
+    sliceIndex: colIndex,
+  });
+
+  // Slice name at top
+  objects.push({
+    id: `slice-${colIndex}`,
+    type: 'slice-name',
+    x,
+    y: sliceNameY,
+    width: colWidth,
+    height: 35,
+    label: slice.name,
+    color: '#cdd6f4',
+    metadata: { devstatus: slice.devstatus },
+    sliceIndex: colIndex,
+  });
+
+  // Trigger placement:
+  // - Internal events: watcher in automation lane
+  // - External events: external-event in its lane + watcher in automation lane
+  if (slice.trigger.kind === 'internalEvent') {
+    const int = slice.trigger.internalEvent;
+    objects.push({
+      id: `watcher-${colIndex}`,
+      type: 'watcher',
+      x,
+      y: automationY,
+      width: colWidth,
+      height: 50,
+      label: int.eventType,
+      color: COLORS.watcher,
+      metadata: { eventType: int.eventType, fields: int.fields },
+      sliceIndex: colIndex,
+    });
+  } else if (slice.trigger.kind === 'externalEvent') {
+    const ext = slice.trigger.externalEvent;
+    const extLaneY = externalEventLaneY[ext.source];
+    // External event in its source lane
+    objects.push({
+      id: `external-event-${colIndex}`,
+      type: 'external-event',
+      x,
+      y: extLaneY,
+      width: colWidth,
+      height: 50,
+      label: ext.name,
+      color: COLORS['external-event'],
+      metadata: { name: ext.name, source: ext.source, fields: ext.fields },
+      sliceIndex: colIndex,
+    });
+    // Watcher in automation lane
+    objects.push({
+      id: `watcher-${colIndex}`,
+      type: 'watcher',
+      x,
+      y: automationY,
+      width: colWidth,
+      height: 50,
+      label: ext.name,
+      color: COLORS.watcher,
+      metadata: { eventType: ext.name, fields: ext.fields, isExternal: true },
+      sliceIndex: colIndex,
+    });
+  }
+
+  // Command - extract queried event types
+  const cmdQueriedTypes: string[] = [];
+  if (slice.command.query) {
+    for (const q of slice.command.query) {
+      if (q.types) cmdQueriedTypes.push(...q.types);
+    }
+  }
+
+  objects.push({
+    id: `cmd-${slice.name}`,
+    type: 'command',
+    x,
+    y: commandY,
+    width: colWidth,
+    height: OBJECT_HEIGHT,
+    label: slice.name,
+    color: COLORS.command,
+    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, scenarios: slice.scenarios?.length || 0 },
+    sliceIndex: colIndex,
+  });
+
+  // Events - spread across column width
+  const eventCount = slice.emits.length;
+  const eventW = Math.max(80, (colWidth - (eventCount - 1) * 5) / eventCount);
+  slice.emits.forEach((emit, i) => {
+    objects.push({
+      id: `event-${slice.name}-${emit.type}-${i}`,
+      type: 'event',
+      x: x + i * (eventW + 5),
+      y: eventY,
+      width: eventW,
+      height: OBJECT_HEIGHT,
+      label: emit.type,
+      color: COLORS.event,
+      metadata: { eventType: emit.type, fields: emit.fields, tags: emit.tags },
+      sliceIndex: colIndex,
+    });
+  });
+
+  // Scenarios
+  (slice.scenarios || []).forEach((scenario, i) => {
+    objects.push({
+      id: `scenario-${slice.name}-${i}`,
+      type: 'scenario',
+      x,
+      y: scenarioY + i * (SCENARIO_HEIGHT + 5),
+      width: colWidth,
+      height: SCENARIO_HEIGHT,
+      label: scenario.name,
+      color: COLORS.scenario,
+      metadata: { ...formatChangeScenario(scenario), isSuccess: scenario.then.success },
+      sliceIndex: colIndex,
+    });
+  });
+}
+
 function addChangeSlice(
   objects: CanvasObject[],
   slice: ChangeSlice,
@@ -337,6 +570,7 @@ function addChangeSlice(
   sliceNameY: number,
   actorY: number,
   actorLaneHeight: number,
+  automationY: number,
   commandY: number,
   eventY: number,
   scenarioY: number,
@@ -388,7 +622,7 @@ function addChangeSlice(
     });
   }
 
-  // Trigger: endpoint or external event (at bottom of actor lane)
+  // Trigger: endpoint, external event, or internal event (at bottom of actor lane)
   if (slice.trigger.kind === 'endpoint') {
     const ep = slice.trigger.endpoint;
     const endpointLabel = `${ep.verb} ${ep.path}`;
@@ -404,7 +638,7 @@ function addChangeSlice(
       metadata: { verb: ep.verb, path: ep.path, params: ep.params, body: ep.body },
       sliceIndex: colIndex,
     });
-  } else {
+  } else if (slice.trigger.kind === 'externalEvent') {
     const ext = slice.trigger.externalEvent;
     objects.push({
       id: `external-event-${colIndex}`,
@@ -416,6 +650,21 @@ function addChangeSlice(
       label: `⚡ ${ext.name}`,
       color: COLORS['external-event'],
       metadata: { name: ext.name, fields: ext.fields },
+      sliceIndex: colIndex,
+    });
+  } else if (slice.trigger.kind === 'internalEvent') {
+    // Watcher in automation lane
+    const int = slice.trigger.internalEvent;
+    objects.push({
+      id: `watcher-${colIndex}`,
+      type: 'watcher',
+      x,
+      y: automationY,
+      width: colWidth,
+      height: 50,
+      label: int.eventType,
+      color: COLORS.watcher,
+      metadata: { eventType: int.eventType, fields: int.fields },
       sliceIndex: colIndex,
     });
   }

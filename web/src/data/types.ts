@@ -1,6 +1,7 @@
 // Board manifest structure
 export interface BoardManifest {
   name: string;
+  actors: string[];
   contexts: ContextEntry[];
   flow: FlowEntry[];
   errors?: string[];
@@ -21,7 +22,7 @@ export interface ChapterEntry {
 export interface FlowEntry {
   index: number;
   kind: 'slice' | 'story';
-  type?: 'change' | 'view';
+  type?: 'change' | 'view' | 'automation';
   name: string;
   file?: string;
   sliceRef?: string;
@@ -63,7 +64,20 @@ export interface ViewSlice {
   scenarios: ViewScenario[];
 }
 
-export type Slice = ChangeSlice | ViewSlice;
+// AutomationSlice - event-triggered automation (no actor)
+export interface AutomationSlice {
+  kind: 'slice';
+  type: 'automation';
+  name: string;
+  image?: string;
+  devstatus?: string;
+  trigger: ExternalEventTrigger | InternalEventTrigger;
+  command: Command;
+  emits: EventEmit[];
+  scenarios: ChangeScenario[];
+}
+
+export type Slice = ChangeSlice | ViewSlice | AutomationSlice;
 
 export interface Endpoint {
   verb: string;
@@ -74,6 +88,7 @@ export interface Endpoint {
 
 export interface ExternalEvent {
   name: string;
+  source: string;
   fields: Record<string, string>;
 }
 
@@ -87,7 +102,17 @@ export interface ExternalEventTrigger {
   externalEvent: ExternalEvent;
 }
 
-export type Trigger = EndpointTrigger | ExternalEventTrigger;
+export interface InternalEvent {
+  eventType: string;
+  fields: Record<string, string>;
+}
+
+export interface InternalEventTrigger {
+  kind: 'internalEvent';
+  internalEvent: InternalEvent;
+}
+
+export type Trigger = EndpointTrigger | ExternalEventTrigger | InternalEventTrigger;
 
 export interface Command {
   fields: Record<string, string>;
@@ -133,7 +158,7 @@ export interface ViewScenario {
 }
 
 // Canvas object types
-export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'swimlane' | 'slice-name' | 'slice-border' | 'scenario' | 'mockup' | 'story' | 'chapter-lane';
+export type ObjectType = 'command' | 'event' | 'read-model' | 'endpoint' | 'external-event' | 'watcher' | 'swimlane' | 'slice-name' | 'slice-border' | 'scenario' | 'mockup' | 'story' | 'chapter-lane';
 
 export interface CanvasObject {
   id: string;

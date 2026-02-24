@@ -74,9 +74,11 @@ package em
 //
 // Fields:
 //   name: string - external event identifier
+//   source: string - origin system/context (e.g., "InventoryContext", "PricingContext")
 //   fields: #Field - payload schema
 #ExternalEvent: {
 	name!:   string
+	source!: string
 	fields!: #Field
 }
 
@@ -85,7 +87,13 @@ package em
 // Commands can be triggered by:
 //   kind: "endpoint" -> HTTP request
 //   kind: "externalEvent" -> event from external system
-#Trigger: #EndpointTrigger | #ExternalEventTrigger
+//   kind: "internalEvent" -> event from within this board (automation)
+#Trigger: #EndpointTrigger | #ExternalEventTrigger | #InternalEventTrigger
+
+// #AutomationTrigger - Triggers for automation slices (no endpoint)
+//
+// Automations can only be triggered by events, not HTTP endpoints.
+#AutomationTrigger: #ExternalEventTrigger | #InternalEventTrigger
 
 #EndpointTrigger: {
 	kind:     "endpoint"
@@ -95,6 +103,16 @@ package em
 #ExternalEventTrigger: {
 	kind:          "externalEvent"
 	externalEvent: #ExternalEvent
+}
+
+// #InternalEventTrigger - Automation trigger from internal event
+//
+// Triggers a command when an event is emitted within this board.
+// Command fields must come from event fields, mapping, or computed.
+// The event must have been emitted before this slice (causality).
+#InternalEventTrigger: {
+	kind:          "internalEvent"
+	internalEvent: #Event
 }
 
 // #Command - Intent to change domain state
