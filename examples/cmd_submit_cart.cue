@@ -40,6 +40,17 @@ SubmitCart: em.#ChangeSlice & {
 				},
 			]
 		}
+
+		// Second phase: check inventory for each product in cart
+		dependentQuery: {
+			extract: {
+				productId: {event: _events.ItemAdded, field: "productId"}
+			}
+			items: [{
+				types: [_events.InventoryChanged]
+				tags: [{tag: _tags.product_id, fromExtract: "productId"}]
+			}]
+		}
 	}
 	emits: [_events.CartSubmitted]
 	scenarios: [
@@ -62,12 +73,16 @@ SubmitCart: em.#ChangeSlice & {
             }
         },
         {
-            name: "inventory changed"
-            given: [_events.CartCreated, _events.ItemAdded & {fields: {itemId: "item-abc"}}, _events.ItemArchived & {fields: {itemId: "item-abc"}}]
+            name: "out of stock"
+            given: [
+                _events.CartCreated,
+                _events.ItemAdded & {fields: {productId: "prod-abc"}},
+                _events.InventoryChanged & {fields: {productId: "prod-abc", inventory: 0}},
+            ]
             when: {}
             then: {
                 success: false
-                error: "Inventory has changed for one or more items in the cart"
+                error: "Product is out of stock"
             }
         },
         {

@@ -2,3 +2,4 @@
 pkg/web/dist
 web-server
 rust
+.grepai/

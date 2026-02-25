@@ -1510,3 +1510,287 @@ board: em.#Board & {
 `
 	assertValid(t, src)
 }
+
+func TestValidDependentQuery(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+_tags: {
+	cart_id: em.#Tag & {name: "cart_id", param: "cartId", type: string}
+	product_id: em.#Tag & {name: "product_id", param: "productId", type: string}
+}
+
+board: em.#Board & {
+	name: "Test"
+	tags: _tags
+	events: {
+		ItemAdded: {eventType: "ItemAdded", fields: {cartId: string, productId: string}, tags: [_tags.cart_id, _tags.product_id]}
+		InventoryChanged: {eventType: "InventoryChanged", fields: {productId: string, qty: int}, tags: [_tags.product_id]}
+	}
+	actors: {User: {name: "User"}}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [
+				{
+					kind: "slice"
+					name: "EmitItem"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {productId: string}, path: "/cart/{cartId}/items"}}
+					command: {name: "AddItem", fields: {cartId: string, productId: string}, query: {items: []}}
+					emits: [events.ItemAdded]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "EmitInventory"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {productId: string, qty: int}, path: "/inventory"}}
+					command: {name: "ChangeInventory", fields: {productId: string, qty: int}, query: {items: []}}
+					emits: [events.InventoryChanged]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "SubmitCart"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/submit"}}
+					command: {
+						name: "SubmitCart"
+						fields: {cartId: string}
+						query: {items: [{types: [events.ItemAdded], tags: [{tag: _tags.cart_id, value: fields.cartId}]}]}
+						dependentQuery: {
+							extract: {productId: {event: events.ItemAdded, field: "productId"}}
+							items: [{types: [events.InventoryChanged], tags: [{tag: _tags.product_id, fromExtract: "productId"}]}]
+						}
+					}
+					emits: []
+					scenarios: [{
+						name: "with inventory"
+						given: [events.ItemAdded, events.InventoryChanged]
+						when: {}
+						then: {success: false, error: "test"}
+					}]
+				},
+			]
+		}]
+	}]
+}
+`
+	assertValid(t, src)
+}
+
+func TestInvalidDependentQueryExtractEventNotInPrimary(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+_tags: {
+	cart_id: em.#Tag & {name: "cart_id", param: "cartId", type: string}
+	product_id: em.#Tag & {name: "product_id", param: "productId", type: string}
+}
+
+board: em.#Board & {
+	name: "Test"
+	tags: _tags
+	events: {
+		CartCreated: {eventType: "CartCreated", fields: {cartId: string}, tags: [_tags.cart_id]}
+		ItemAdded: {eventType: "ItemAdded", fields: {cartId: string, productId: string}, tags: [_tags.cart_id, _tags.product_id]}
+		InventoryChanged: {eventType: "InventoryChanged", fields: {productId: string}, tags: [_tags.product_id]}
+	}
+	actors: {User: {name: "User"}}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [
+				{
+					kind: "slice"
+					name: "EmitCart"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {cartId: string}, path: "/cart"}}
+					command: {name: "CreateCart", fields: {cartId: string}, query: {items: []}}
+					emits: [events.CartCreated]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "EmitItem"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {productId: string}, path: "/cart/{cartId}/items"}}
+					command: {name: "AddItem", fields: {cartId: string, productId: string}, query: {items: []}}
+					emits: [events.ItemAdded]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "EmitInventory"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {productId: string}, path: "/inventory"}}
+					command: {name: "ChangeInventory", fields: {productId: string}, query: {items: []}}
+					emits: [events.InventoryChanged]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "SubmitCart"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/submit"}}
+					command: {
+						name: "SubmitCart"
+						fields: {cartId: string}
+						// Primary query only has CartCreated
+						query: {items: [{types: [events.CartCreated], tags: [{tag: _tags.cart_id, value: fields.cartId}]}]}
+						// But extract references ItemAdded which is NOT in primary
+						dependentQuery: {
+							extract: {productId: {event: events.ItemAdded, field: "productId"}}
+							items: [{types: [events.InventoryChanged], tags: [{tag: _tags.product_id, fromExtract: "productId"}]}]
+						}
+					}
+					emits: []
+					scenarios: []
+				},
+			]
+		}]
+	}]
+}
+`
+	assertInvalidGo(t, src, "extract.productId", "must be in primary query")
+}
+
+func TestInvalidDependentQueryExtractFieldNotInEvent(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+_tags: {
+	cart_id: em.#Tag & {name: "cart_id", param: "cartId", type: string}
+	product_id: em.#Tag & {name: "product_id", param: "productId", type: string}
+}
+
+board: em.#Board & {
+	name: "Test"
+	tags: _tags
+	events: {
+		ItemAdded: {eventType: "ItemAdded", fields: {cartId: string}, tags: [_tags.cart_id]}
+		InventoryChanged: {eventType: "InventoryChanged", fields: {productId: string}, tags: [_tags.product_id]}
+	}
+	actors: {User: {name: "User"}}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [
+				{
+					kind: "slice"
+					name: "EmitItem"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/items"}}
+					command: {name: "AddItem", fields: {cartId: string}, query: {items: []}}
+					emits: [events.ItemAdded]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "EmitInventory"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {}, body: {productId: string}, path: "/inventory"}}
+					command: {name: "ChangeInventory", fields: {productId: string}, query: {items: []}}
+					emits: [events.InventoryChanged]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "SubmitCart"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/submit"}}
+					command: {
+						name: "SubmitCart"
+						fields: {cartId: string}
+						query: {items: [{types: [events.ItemAdded], tags: [{tag: _tags.cart_id, value: fields.cartId}]}]}
+						// Extract field "productId" doesn't exist in ItemAdded
+						dependentQuery: {
+							extract: {productId: {event: events.ItemAdded, field: "productId"}}
+							items: [{types: [events.InventoryChanged], tags: [{tag: _tags.product_id, fromExtract: "productId"}]}]
+						}
+					}
+					emits: []
+					scenarios: []
+				},
+			]
+		}]
+	}]
+}
+`
+	assertInvalidGo(t, src, "extract.productId", "not in event")
+}
+
+func TestInvalidDependentQueryFromExtractInPrimaryQuery(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+_tags: {
+	cart_id: em.#Tag & {name: "cart_id", param: "cartId", type: string}
+}
+
+board: em.#Board & {
+	name: "Test"
+	tags: _tags
+	events: {
+		ItemAdded: {eventType: "ItemAdded", fields: {cartId: string}, tags: [_tags.cart_id]}
+	}
+	actors: {User: {name: "User"}}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [
+				{
+					kind: "slice"
+					name: "EmitItem"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/items"}}
+					command: {name: "AddItem", fields: {cartId: string}, query: {items: []}}
+					emits: [events.ItemAdded]
+					scenarios: []
+				},
+				{
+					kind: "slice"
+					name: "SubmitCart"
+					type: "change"
+					actor: {name: "User"}
+					trigger: {kind: "endpoint", endpoint: {verb: "POST", params: {cartId: string}, body: {}, path: "/cart/{cartId}/submit"}}
+					command: {
+						name: "SubmitCart"
+						fields: {cartId: string}
+						// fromExtract in primary query - not allowed
+						query: {items: [{types: [events.ItemAdded], tags: [{tag: _tags.cart_id, fromExtract: "something"}]}]}
+					}
+					emits: []
+					scenarios: []
+				},
+			]
+		}]
+	}]
+}
+`
+	assertInvalidGo(t, src, "SubmitCart", "fromExtract only allowed in dependentQuery")
+}

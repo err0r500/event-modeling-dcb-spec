@@ -124,6 +124,7 @@ package em
 //   name: string - command identifier (e.g., "AddToCart")
 //   fields: #Field - command input schema (must match endpoint inputs)
 //   query: #DCBQuery - events to load for consistency check before emitting
+//   dependentQuery?: #DependentQuery - optional second-phase query using extracted values
 //   computed?: #Field - fields derived at runtime (e.g., timestamp, generated IDs)
 //   mapping?: #Field - rename endpoint fields (cmdField: endpoint.params.x or endpoint.body.x)
 #Command: {
@@ -131,6 +132,8 @@ package em
 	fields!: #Field
 
 	query!: #DCBQuery
+	// Optional dependent query using values extracted from primary query
+	dependentQuery?: #DependentQuery
 	// Fields not from endpoint (computed) - field name → description
 	computed: {[string]: string} | *{}
 	// Field mapping: cmdField -> endpoint.params.x or endpoint.body.x
