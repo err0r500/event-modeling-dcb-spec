@@ -61,7 +61,8 @@ package em
 #QueryExtract: {
 	[name=string]: {
 		event: #Event
-		field: string
+		field: or([ for k, _ in event.fields { k } ]) // must be a field from event.fields
+		many:  bool | *false // true = extract all values (list), false = single value
 	}
 }
 
@@ -86,4 +87,13 @@ package em
 #DependentQuery: {
 	extract: #QueryExtract
 	items: [...#QueryItem]
+
+	// Validate: all fromExtract references must exist in extract
+	// Error shows valid extract names when invalid
+	_extractKeys: or([ for k, _ in extract { k } ])
+	_validateRefs: [
+		for _, item in items for _, t in item.tags if t.fromExtract != _|_ {
+			t.fromExtract & _extractKeys
+		}
+	]
 }

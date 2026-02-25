@@ -522,7 +522,7 @@ function addAutomationSlice(
     height: OBJECT_HEIGHT,
     label: slice.name,
     color: COLORS.command,
-    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, scenarios: slice.scenarios?.length || 0, consumes: slice.consumes },
+    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, dependentQuery: (slice.command as any).dependentQuery, scenarios: slice.scenarios?.length || 0, consumes: slice.consumes },
     sliceIndex: colIndex,
   });
 
@@ -686,7 +686,7 @@ function addChangeSlice(
     height: OBJECT_HEIGHT,
     label: slice.name,
     color: COLORS.command,
-    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, scenarios: slice.scenarios?.length || 0 },
+    metadata: { emitsTypes: slice.emits.map(e => e.type), queriesTypes: cmdQueriedTypes, fields: slice.command.fields, query: slice.command.query, dependentQuery: (slice.command as any).dependentQuery, scenarios: slice.scenarios?.length || 0 },
     sliceIndex: colIndex,
   });
 
@@ -819,7 +819,7 @@ function addViewSlice(
     height: OBJECT_HEIGHT,
     label: slice.readModel.name,
     color: COLORS['read-model'],
-    metadata: { queriesTypes: queriedTypes, fields: slice.readModel.fields, mapping: slice.readModel.mapping, cardinality: slice.readModel.cardinality, query: slice.query },
+    metadata: { queriesTypes: queriedTypes, fields: slice.readModel.fields, mapping: slice.readModel.mapping, cardinality: slice.readModel.cardinality, query: slice.query, dependentQuery: (slice as any).dependentQuery },
     sliceIndex: colIndex,
   });
 

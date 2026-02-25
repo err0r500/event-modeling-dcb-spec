@@ -1737,7 +1737,7 @@ board: em.#Board & {
 	}]
 }
 `
-	assertInvalidGo(t, src, "extract.productId", "not in event")
+	assertInvalid(t, src, "empty disjunction")
 }
 
 func TestInvalidDependentQueryFromExtractInPrimaryQuery(t *testing.T) {
