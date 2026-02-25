@@ -33,7 +33,7 @@ SubmitCart: em.#ChangeSlice & {
 					]
 				},
 				{
-					types: [_events.ItemAdded, _events.ItemRemoved]
+					types: [_events.ItemAdded, _events.ItemRemoved, _events.ItemArchived, _events.CartSubmitted]
 					tags: [
 						{tag: _tags.cart_id, value: fields.cartId},
 					]
@@ -42,5 +42,42 @@ SubmitCart: em.#ChangeSlice & {
 		}
 	}
 	emits: [_events.CartSubmitted]
-	scenarios: []
+	scenarios: [
+		{
+			name: "one item in cart"
+			given: [_events.CartCreated, _events.ItemAdded]
+			when: {}
+			then: {
+				success: true
+				events: [_events.CartSubmitted]
+			}
+		},
+        {
+            name: "empty cart"
+            given: [_events.CartCreated]
+            when: {}
+            then: {
+                success: false
+                error: "Cart cannot be empty"
+            }
+        },
+        {
+            name: "inventory changed"
+            given: [_events.CartCreated, _events.ItemAdded & {fields: {itemId: "item-abc"}}, _events.ItemArchived & {fields: {itemId: "item-abc"}}]
+            when: {}
+            then: {
+                success: false
+                error: "Inventory has changed for one or more items in the cart"
+            }
+        },
+        {
+            name: "cart already submitted"
+            given: [_events.CartCreated, _events.ItemAdded, _events.CartSubmitted]
+            when: {}
+            then: {
+                success: false
+                error: "Cart has already been submitted"
+            }
+        },
+	]
 }

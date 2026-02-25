@@ -46,7 +46,7 @@ cartBoard: em.#Board & {
 				},
 				{
 					name:        "Inventory"
-					description: "Customer reviews cart contents before checkout"
+					description: "Handles changes from the inventory context"
 					flow: [
 						OnInventoryChanged,
 						ViewProductsInventories,
@@ -54,7 +54,7 @@ cartBoard: em.#Board & {
 				},
 				{
 					name:        "Price Change"
-					description: ""
+					description: "Handles changes from the pricing context"
 					flow: [
 						OnPriceChanged,
 						ChangedPrices,
@@ -64,7 +64,7 @@ cartBoard: em.#Board & {
 				},
 				{
 					name:        "Submit Cart"
-					description: "Customer submits the cart to place an order"
+					description: "Customer submits the cart"
 					flow: [
 						SubmitCart,
 						AutoCloseCart,
