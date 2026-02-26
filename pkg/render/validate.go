@@ -96,10 +96,12 @@ var (
 
 var (
 	// Type mismatch path patterns for friendly formatting
-	cmdFieldTypeRe  = regexp.MustCompile(`slice_(\w+)_field_(\w+)_type`)
-	emitFieldTypeRe = regexp.MustCompile(`slice_(\w+)_emit_(\w+)_field_(\w+)_type`)
-	mappingTypeRe   = regexp.MustCompile(`view_(\w+)_mapping_(\w+)_type`)
-	scenarioTypeRe  = regexp.MustCompile(`_validValues\.(\w+)`)
+	cmdFieldTypeRe       = regexp.MustCompile(`slice_(\w+)_field_(\w+)_type`)
+	emitFieldTypeRe      = regexp.MustCompile(`slice_(\w+)_emit_(\w+)_field_(\w+)_type`)
+	mappingTypeRe        = regexp.MustCompile(`view_(\w+)_mapping_(\w+)_type`)
+	scenarioTypeRe       = regexp.MustCompile(`_validValues\.(\w+)`)
+	autoFieldTypeRe      = regexp.MustCompile(`automation_(\w+)_field_(\w+)_type`)
+	autoEmitFieldTypeRe  = regexp.MustCompile(`automation_(\w+)_emit_(\w+)_field_(\w+)_type`)
 )
 
 // formatTypeMismatch returns (code, friendly message) for a type mismatch path
@@ -196,9 +198,31 @@ func extractPosition(err errors.Error) string {
 func formatSingleError(err errors.Error) (string, string) {
 	msg := err.Error()
 
-	// Skip disjunction noise
-	if strings.Contains(msg, "empty disjunction") || strings.Contains(msg, "field not allowed") || strings.Contains(msg, "incompatible list lengths") {
+	// Skip structural noise
+	if strings.Contains(msg, "field not allowed") || strings.Contains(msg, "incompatible list lengths") {
 		return "", ""
+	}
+
+	// Empty disjunction means all branches of a union type failed to unify.
+	// When this occurs on a known type-validation key it is a real type mismatch —
+	// don't silently drop it.
+	if strings.Contains(msg, "empty disjunction") {
+		if m := autoEmitFieldTypeRe.FindStringSubmatch(msg); m != nil {
+			return ErrEmitFieldType, fmt.Sprintf("automation %q emits %q: field %q type mismatch (union type incompatible)", m[1], m[2], m[3])
+		}
+		if m := autoFieldTypeRe.FindStringSubmatch(msg); m != nil {
+			return ErrCmdFieldType, fmt.Sprintf("automation %q command: field %q type mismatch (union type incompatible)", m[1], m[2])
+		}
+		if m := emitFieldTypeRe.FindStringSubmatch(msg); m != nil {
+			return ErrEmitFieldType, fmt.Sprintf("slice %q emits %q: field %q type mismatch (union type incompatible)", m[1], m[2], m[3])
+		}
+		if m := cmdFieldTypeRe.FindStringSubmatch(msg); m != nil {
+			return ErrCmdFieldType, fmt.Sprintf("slice %q command: field %q type mismatch (union type incompatible)", m[1], m[2])
+		}
+		if m := mappingTypeRe.FindStringSubmatch(msg); m != nil {
+			return ErrMappingType, fmt.Sprintf("view %q mapping %q: type mismatch (union type incompatible)", m[1], m[2])
+		}
+		return "", "" // Not a type-validation key — skip as disjunction noise
 	}
 
 	// DCB: event missing tag
@@ -335,6 +359,10 @@ func ValidateBoard(board cue.Value) []string {
 
 	// Additional Go validation: dotted paths in mapping/computed must resolve
 	errs = append(errs, validateDottedPaths(board)...)
+
+	// Additional Go validation: command field types must subsume (be at least as broad as)
+	// source field types — catches union-type narrowing that CUE's & operator allows.
+	errs = append(errs, validateCommandFieldTypeSubsumption(board)...)
 
 	return errs
 }
@@ -556,6 +584,107 @@ func validateParameterizedTags(board cue.Value) []string {
 						}
 					}
 				}
+			}
+		}
+	}
+
+	return errs
+}
+
+// validateCommandFieldTypeSubsumption checks that command field types are at least as broad
+// as the source (endpoint/event) field types. This catches the case where an endpoint
+// declares a union type (e.g. int | string) but the command only handles a subset (e.g. string).
+// CUE's & operator accepts this (string is a valid intersection), but at runtime the endpoint
+// could deliver a value that the command can't handle.
+//
+// This function only fires when the types ARE compatible (non-empty intersection) but the
+// command type is narrower than the source type. Truly incompatible types are already caught
+// by the CUE-side validation in board.cue.
+func validateCommandFieldTypeSubsumption(board cue.Value) []string {
+	var errs []string
+
+	flowVal := board.LookupPath(cue.ParsePath("flow"))
+	flowIter, err := flowVal.List()
+	if err != nil {
+		return errs
+	}
+
+	for flowIter.Next() {
+		inst := flowIter.Value()
+		if getString(inst, "kind") != "slice" {
+			continue
+		}
+		if getString(inst, "type") != "change" {
+			continue
+		}
+
+		sliceName := getString(inst, "name")
+		triggerKind := getString(inst, "trigger.kind")
+
+		// Build sets of fields excluded from direct type checking
+		computed := make(map[string]bool)
+		if iter, err := inst.LookupPath(cue.ParsePath("command.computed")).Fields(); err == nil {
+			for iter.Next() {
+				computed[iter.Selector().Unquoted()] = true
+			}
+		}
+		mapped := make(map[string]bool)
+		if iter, err := inst.LookupPath(cue.ParsePath("command.mapping")).Fields(); err == nil {
+			for iter.Next() {
+				mapped[iter.Selector().Unquoted()] = true
+			}
+		}
+
+		// Collect source field structs in priority order
+		var srcVals []cue.Value
+		switch triggerKind {
+		case "endpoint":
+			srcVals = []cue.Value{
+				inst.LookupPath(cue.ParsePath("trigger.endpoint.params")),
+				inst.LookupPath(cue.ParsePath("trigger.endpoint.body")),
+				inst.LookupPath(cue.ParsePath("trigger.endpoint.auth")),
+			}
+		case "externalEvent":
+			srcVals = []cue.Value{inst.LookupPath(cue.ParsePath("trigger.externalEvent.fields"))}
+		case "internalEvent":
+			srcVals = []cue.Value{inst.LookupPath(cue.ParsePath("trigger.internalEvent.fields"))}
+		default:
+			continue
+		}
+
+		cmdFieldsIter, err := inst.LookupPath(cue.ParsePath("command.fields")).Fields()
+		if err != nil {
+			continue
+		}
+		for cmdFieldsIter.Next() {
+			fieldName := cmdFieldsIter.Selector().Unquoted()
+			if computed[fieldName] || mapped[fieldName] {
+				continue
+			}
+			commandFieldType := cmdFieldsIter.Value()
+
+			// Find this field in one of the source structs
+			for _, srcVal := range srcVals {
+				srcFieldType := srcVal.LookupPath(cue.ParsePath(fieldName))
+				if !srcFieldType.Exists() || srcFieldType.Err() != nil {
+					continue
+				}
+
+				// Skip if types are already incompatible (non-empty intersection).
+				// That case is caught by the CUE-side constraint key and the empty-disjunction
+				// fix in formatSingleError.
+				if commandFieldType.Unify(srcFieldType).Err() != nil {
+					break
+				}
+
+				// Check subsumption: commandFieldType must subsume srcFieldType, meaning
+				// the command must accept every value the source can provide.
+				if err := commandFieldType.Subsume(srcFieldType, cue.Raw()); err != nil {
+					errs = append(errs, fmtErr(ErrCmdFieldType, fmt.Sprintf(
+						"slice %q command: field %q type too narrow — source provides wider union type than command declares",
+						sliceName, fieldName), ""))
+				}
+				break
 			}
 		}
 	}

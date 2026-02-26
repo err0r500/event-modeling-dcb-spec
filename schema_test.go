@@ -1510,3 +1510,198 @@ board: em.#Board & {
 `
 	assertValid(t, src)
 }
+
+// --- Union type tests ---
+
+// TestInvalidUnionTypeEndpointIncompatibleWithCommand checks that when an endpoint field has
+// a union type (int | string) and the command field has a completely incompatible type (float),
+// a type mismatch error is reported. CUE detects this as an empty disjunction; the fix in
+// formatSingleError ensures the error is surfaced rather than silently dropped.
+func TestInvalidUnionTypeEndpointIncompatibleWithCommand(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		TestEvent: {eventType: "TestEvent", fields: {x: int | string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "TestSlice"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {x: int | string}  // union type
+					body: {}
+					path: "/test"
+				}}
+				command: {
+					name: "TestCmd"
+					fields: {x: float}  // float: incompatible with int | string
+					query: {items: []}
+				}
+				emits: [events.TestEvent]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertInvalid(t, src, "slice_TestSlice_field_x_type")
+}
+
+// TestInvalidUnionTypeCommandTooNarrow checks that when an endpoint provides a union type
+// (int | string) but the command only declares a subset (string), a Go-side subsumption
+// error is reported. CUE's unification (int|string & string = string) passes, but the
+// command is too narrow to safely handle all values the endpoint might provide.
+func TestInvalidUnionTypeCommandTooNarrow(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		TestEvent: {eventType: "TestEvent", fields: {x: string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "TestSlice"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {x: int | string}  // union: endpoint can provide int OR string
+					body: {}
+					path: "/test"
+				}}
+				command: {
+					name: "TestCmd"
+					fields: {x: string}  // too narrow: can't handle ints from the endpoint
+					query: {items: []}
+				}
+				emits: [events.TestEvent]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertInvalidGo(t, src, "TestSlice", "type too narrow")
+}
+
+// TestValidUnionTypeSameOnBothSides checks that when endpoint and command both declare the
+// same union type (int | string), no error is reported.
+func TestValidUnionTypeSameOnBothSides(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		TestEvent: {eventType: "TestEvent", fields: {x: int | string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "TestSlice"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {x: int | string}
+					body: {}
+					path: "/test"
+				}}
+				command: {
+					name: "TestCmd"
+					fields: {x: int | string}  // same union type: command handles everything
+					query: {items: []}
+				}
+				emits: [events.TestEvent]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertValid(t, src)
+}
+
+// TestValidUnionTypeCommandWiderThanEndpoint checks that when an endpoint provides a concrete
+// type (string) and the command declares a wider union type (int | string), no error is
+// reported — the command can safely handle the narrower endpoint type.
+func TestValidUnionTypeCommandWiderThanEndpoint(t *testing.T) {
+	src := `
+package test
+
+import "github.com/err0r500/event-modeling-dcb-spec/em"
+
+board: em.#Board & {
+	name: "Test"
+	tags: {}
+	events: {
+		TestEvent: {eventType: "TestEvent", fields: {x: string}, tags: []}
+	}
+	actors: {
+		User: {name: "User"}
+	}
+	contexts: [{
+		name: "Default"
+		chapters: [{
+			name: "Main"
+			flow: [{
+				kind: "slice"
+				name: "TestSlice"
+				type: "change"
+				actor: {name: "User"}
+				trigger: {kind: "endpoint", endpoint: {
+					verb: "POST"
+					params: {x: string}  // concrete type
+					body: {}
+					path: "/test"
+				}}
+				command: {
+					name: "TestCmd"
+					fields: {x: int | string}  // wider union: command accepts more than endpoint provides
+					query: {items: []}
+				}
+				emits: [events.TestEvent]
+				scenarios: []
+			}]
+		}]
+	}]
+}
+`
+	assertValid(t, src)
+}
