@@ -124,6 +124,7 @@ package em
 //   name: string - command identifier (e.g., "AddToCart")
 //   fields: #Field - command input schema (must match endpoint inputs)
 //   query: #DCBQuery - events to load for consistency check before emitting
+//   dependentQuery?: #DependentQuery - optional second-phase query using extracted values
 //   computed?: #Field - fields derived at runtime (e.g., timestamp, generated IDs)
 //   mapping?: #Field - rename endpoint fields (cmdField: endpoint.params.x or endpoint.body.x)
 #Command: {
@@ -131,10 +132,22 @@ package em
 	fields!: #Field
 
 	query!: #DCBQuery
+	// Optional dependent query using values extracted from primary query
+	dependentQuery?: #DependentQuery
 	// Fields not from endpoint (computed) - field name → description
 	computed: {[string]: string} | *{}
 	// Field mapping: cmdField -> endpoint.params.x or endpoint.body.x
 	mapping: #Field | *{}
+
+	// Validate: dependentQuery.extract events must be in primary query.items[*].types
+	if dependentQuery != _|_ {
+		_queryEvents: or([ for item in query.items for e in item.types {e.eventType}])
+		_validateExtractEvents: [
+			for _, ext in dependentQuery.extract {
+				ext.event.eventType & _queryEvents
+			}
+		]
+	}
 }
 
 // #ComputedField - ReadModel field derived from event fields

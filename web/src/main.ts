@@ -328,6 +328,29 @@ function formatQuery(query: any[]): string {
     }).join('\n');
 }
 
+function formatDependentQuery(dq: { extract: Record<string, { event: string; field: string; many?: boolean }>; items: any[] }): string {
+    let result = 'DependentQuery:';
+    if (dq.extract) {
+        result += '\n  Extract:';
+        for (const [name, ext] of Object.entries(dq.extract)) {
+            const manyStr = ext.many ? ' (many)' : '';
+            result += `\n    ${name}: ${ext.event}.${ext.field}${manyStr}`;
+        }
+    }
+    if (dq.items && dq.items.length > 0) {
+        result += '\n  Items:';
+        for (const item of dq.items) {
+            const types = item.types?.join(', ') || '';
+            const tags = item.tags?.map((t: any) => {
+                if (t.fromExtract) return `${t.tag}={fromExtract:${t.fromExtract}}`;
+                return `${t.tag}={${t.param}}`;
+            }).join(', ') || '';
+            result += `\n    [${types}] ${tags ? `where ${tags}` : ''}`;
+        }
+    }
+    return result;
+}
+
 function formatValue(v: unknown, indent: string): string {
     if (v === null) return 'null';
     if (Array.isArray(v)) {
@@ -381,6 +404,9 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
                 const queryStr = formatQuery(obj.metadata.query as any[]);
                 if (queryStr) content += `\n\nQuery:\n${queryStr}`;
             }
+            if (obj.metadata.dependentQuery) {
+                content += `\n\n${formatDependentQuery(obj.metadata.dependentQuery as any)}`;
+            }
             if (obj.metadata.consumes && (obj.metadata.consumes as any[]).length > 0) {
                 const consumes = obj.metadata.consumes as { name: string }[];
                 content += `\n\nConsumes:\n${consumes.map(c => `  ${c.name}`).join('\n')}`;
@@ -394,6 +420,9 @@ function showTooltip(obj: CanvasObject, e: MouseEvent): void {
             if (obj.metadata.query) {
                 const queryStr = formatQuery(obj.metadata.query as any[]);
                 if (queryStr) content += `\n\nQuery:\n${queryStr}`;
+            }
+            if (obj.metadata.dependentQuery) {
+                content += `\n\n${formatDependentQuery(obj.metadata.dependentQuery as any)}`;
             }
             if (obj.metadata.fields) {
                 const fields = obj.metadata.fields as Record<string, unknown>;

@@ -40,6 +40,12 @@ const (
 	ErrEventMissingTag  = "E301" // event missing required tag
 	ErrTagRequiresValue = "E302" // parameterized tag requires value
 
+	// Dependent query errors
+	ErrDepExtractEventNotInQuery = "E311" // extract event not in primary query
+	ErrDepExtractFieldNotInEvent = "E312" // extract field not in event
+	ErrDepFromExtractAndValue    = "E313" // cannot have both fromExtract and value
+	ErrDepFromExtractInPrimary   = "E314" // fromExtract only allowed in dependent query
+
 	// Scenario errors
 	ErrScenarioGiven     = "E401" // given event not in query
 	ErrScenarioThen      = "E402" // then event not in emits
@@ -336,6 +342,9 @@ func ValidateBoard(board cue.Value) []string {
 	// Additional Go validation: dotted paths in mapping/computed must resolve
 	errs = append(errs, validateDottedPaths(board)...)
 
+	// Additional Go validation: dependent query constraints
+	errs = append(errs, validateDependentQueries(board)...)
+
 	return errs
 }
 
@@ -553,6 +562,134 @@ func validateParameterizedTags(board cue.Value) []string {
 							if !valueVal.Exists() || valueVal.Err() != nil {
 								errs = append(errs, fmtErr(ErrTagRequiresValue, fmt.Sprintf("slice %q query: tag %q must have a value (parameterized tag)", sliceName, tagName), ""))
 							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return errs
+}
+
+// validateDependentQueries checks dependent query constraints:
+// 1. extract.event must be in primary query
+// 2. extract.field must exist in that event
+// 3. TagRef cannot have both fromExtract and value
+// 4. primary query cannot use fromExtract
+func validateDependentQueries(board cue.Value) []string {
+	var errs []string
+
+	eventsVal := board.LookupPath(cue.ParsePath("events"))
+	flowVal := board.LookupPath(cue.ParsePath("flow"))
+	flowIter, err := flowVal.List()
+	if err != nil {
+		return errs
+	}
+
+	for flowIter.Next() {
+		inst := flowIter.Value()
+		kind := getString(inst, "kind")
+		if kind != "slice" {
+			continue
+		}
+
+		sliceName := getString(inst, "name")
+		sliceType := getString(inst, "type")
+
+		// Determine paths based on slice type
+		var queryPath, depQueryPath string
+		if sliceType == "change" || sliceType == "automation" {
+			queryPath = "command.query.items"
+			depQueryPath = "command.dependentQuery"
+		} else if sliceType == "view" {
+			queryPath = "query.items"
+			depQueryPath = "dependentQuery"
+		} else {
+			continue
+		}
+
+		// Check primary query for fromExtract (not allowed)
+		queryVal := inst.LookupPath(cue.ParsePath(queryPath))
+		if qIter, err := queryVal.List(); err == nil {
+			for qIter.Next() {
+				item := qIter.Value()
+				tagsVal := item.LookupPath(cue.ParsePath("tags"))
+				if tIter, err := tagsVal.List(); err == nil {
+					for tIter.Next() {
+						tagRef := tIter.Value()
+						fromExtract := tagRef.LookupPath(cue.ParsePath("fromExtract"))
+						if fromExtract.Exists() && fromExtract.Err() == nil {
+							errs = append(errs, fmtErr(ErrDepFromExtractInPrimary, fmt.Sprintf("slice %q: fromExtract only allowed in dependentQuery, not primary query", sliceName), ""))
+						}
+					}
+				}
+			}
+		}
+
+		// Check dependent query if present
+		depQueryVal := inst.LookupPath(cue.ParsePath(depQueryPath))
+		if !depQueryVal.Exists() || depQueryVal.Err() != nil {
+			continue
+		}
+
+		// Build set of event types in primary query
+		primaryEventTypes := make(map[string]bool)
+		if qIter, err := queryVal.List(); err == nil {
+			for qIter.Next() {
+				item := qIter.Value()
+				typesVal := item.LookupPath(cue.ParsePath("types"))
+				if tIter, err := typesVal.List(); err == nil {
+					for tIter.Next() {
+						evtType := getString(tIter.Value(), "eventType")
+						primaryEventTypes[evtType] = true
+					}
+				}
+			}
+		}
+
+		// Validate extract: event in primary, field exists
+		extractVal := depQueryVal.LookupPath(cue.ParsePath("extract"))
+		if iter, err := extractVal.Fields(); err == nil {
+			for iter.Next() {
+				extractName := iter.Selector().Unquoted()
+				ext := iter.Value()
+
+				evtType := getString(ext, "event.eventType")
+				fieldName := getString(ext, "field")
+
+				// Check event is in primary query
+				if !primaryEventTypes[evtType] {
+					errs = append(errs, fmtErr(ErrDepExtractEventNotInQuery, fmt.Sprintf("slice %q dependentQuery.extract.%s: event %q must be in primary query", sliceName, extractName, evtType), ""))
+				}
+
+				// Check field exists in event
+				eventFieldsVal := eventsVal.LookupPath(cue.ParsePath(evtType + ".fields"))
+				fieldVal := eventFieldsVal.LookupPath(cue.ParsePath(fieldName))
+				if !fieldVal.Exists() || fieldVal.Err() != nil {
+					errs = append(errs, fmtErr(ErrDepExtractFieldNotInEvent, fmt.Sprintf("slice %q dependentQuery.extract.%s: field %q not in event %q", sliceName, extractName, fieldName, evtType), ""))
+				}
+			}
+		}
+
+		// Validate dependent query items: tags cannot have both value and fromExtract
+		depItemsVal := depQueryVal.LookupPath(cue.ParsePath("items"))
+		if dIter, err := depItemsVal.List(); err == nil {
+			for dIter.Next() {
+				item := dIter.Value()
+				tagsVal := item.LookupPath(cue.ParsePath("tags"))
+				if tIter, err := tagsVal.List(); err == nil {
+					for tIter.Next() {
+						tagRef := tIter.Value()
+						valueVal := tagRef.LookupPath(cue.ParsePath("value"))
+						fromExtractVal := tagRef.LookupPath(cue.ParsePath("fromExtract"))
+
+						hasValue := valueVal.Exists() && valueVal.Err() == nil
+						hasFromExtract := fromExtractVal.Exists() && fromExtractVal.Err() == nil
+
+						if hasValue && hasFromExtract {
+							tagName := getString(tagRef, "tag.name")
+							errs = append(errs, fmtErr(ErrDepFromExtractAndValue, fmt.Sprintf("slice %q dependentQuery: tag %q cannot have both value and fromExtract", sliceName, tagName), ""))
 						}
 					}
 				}

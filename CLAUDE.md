@@ -18,11 +18,15 @@ go test -run TestValidation    # Run specific test (schema_test.go)
 # TUI + watch (default)
 go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir
 
+# just render IR, no TUI, no watch
+go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir -no-tui -watch=false
+
 # With web server
 go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir -web
 
 # Web only
 go run ./cmd/emspec -file examples/cart.cue -outdir /tmp/ir -web -no-tui
+
 ```
 
 ## Architecture

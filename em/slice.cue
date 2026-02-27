@@ -69,6 +69,7 @@ package em
 //   endpoint: #Endpoint - HTTP API surface for this slice
 //   readModel: #ReadModel - output schema with cardinality
 //   query: #DCBQuery - which events to project (must be emitted before this slice)
+//   dependentQuery?: #DependentQuery - optional second-phase query using extracted values
 //   scenarios: [...] - test cases with type-checked expect matching readModel.fields
 //
 // Validation:
@@ -87,6 +88,19 @@ package em
 
 	// DCB query for events to build this view
 	query!: #DCBQuery
+
+	// Optional dependent query using values extracted from primary query
+	dependentQuery?: #DependentQuery
+
+	// Validate: dependentQuery.extract events must be in primary query.items[*].types
+	if dependentQuery != _|_ {
+		_queryEvents: or([ for item in query.items for e in item.types {e.eventType}])
+		_validateExtractEvents: [
+			for _, ext in dependentQuery.extract {
+				ext.event.eventType & _queryEvents
+			}
+		]
+	}
 
 	// View scenarios with type-checked expect against readModel.fields/columns
 	// name, given, query, expect

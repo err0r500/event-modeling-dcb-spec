@@ -223,14 +223,20 @@ import (
 				("slice_\(inst.name)_scenario\(si)_command_must_match"): s.when.name & inst.command.name
 			}
 
-			// Validate scenario given events are in query types
+			// Validate scenario given events are in query types (including dependent query)
 			let _queryEventTypes = [
 				for qi in inst.command.query.items
 				for e in qi.types {e.eventType},
 			]
+			let _depQueryEventTypes = [
+				if inst.command.dependentQuery != _|_
+				for qi in inst.command.dependentQuery.items
+				for e in qi.types {e.eventType},
+			]
+			let _allQueryEventTypes = list.Concat([_queryEventTypes, _depQueryEventTypes])
 			for si, s in inst.scenarios {
 				for ge in s.given {
-					("slice_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_queryEventTypes, ge.eventType) & true
+					("slice_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_allQueryEventTypes, ge.eventType) & true
 				}
 			}
 
@@ -257,8 +263,24 @@ import (
 						("slice_\(inst.name)_event_\(e.eventType)_must_have_tag_\(tref._tagName)"): list.Contains(_eventTagMap[e.eventType], tref._tagName) & true
 					}
 				}
+			}
 
+			// Validate dependent query if present
+			if inst.command.dependentQuery != _|_ {
+				for qi in inst.command.dependentQuery.items {
+					// All tags must be defined
+					for tref in qi.tags {
+						_dcbTagValid: list.Contains(_tagList, tref._tagName) & true
+					}
+
+					// Satisfiability: EVERY event must have ALL required tags
+					for e in qi.types {
+						for tref in qi.tags {
+							("slice_\(inst.name)_depquery_event_\(e.eventType)_must_have_tag_\(tref._tagName)"): list.Contains(_eventTagMap[e.eventType], tref._tagName) & true
+						}
+					}
 				}
+			}
 		}
 	}
 
@@ -353,14 +375,20 @@ import (
 				("automation_\(inst.name)_scenario\(si)_command_must_match"): s.when.name & inst.command.name
 			}
 
-			// Validate scenario given events are in query types
+			// Validate scenario given events are in query types (including dependent query)
 			let _queryEventTypes = [
 				for qi in inst.command.query.items
 				for e in qi.types {e.eventType},
 			]
+			let _depQueryEventTypes = [
+				if inst.command.dependentQuery != _|_
+				for qi in inst.command.dependentQuery.items
+				for e in qi.types {e.eventType},
+			]
+			let _allQueryEventTypes = list.Concat([_queryEventTypes, _depQueryEventTypes])
 			for si, s in inst.scenarios {
 				for ge in s.given {
-					("automation_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_queryEventTypes, ge.eventType) & true
+					("automation_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_allQueryEventTypes, ge.eventType) & true
 				}
 			}
 
@@ -388,6 +416,23 @@ import (
 					}
 				}
 			}
+
+			// Validate dependent query if present
+			if inst.command.dependentQuery != _|_ {
+				for qi in inst.command.dependentQuery.items {
+					// All tags must be defined
+					for tref in qi.tags {
+						_dcbTagValid: list.Contains(_tagList, tref._tagName) & true
+					}
+
+					// Satisfiability: EVERY event must have ALL required tags
+					for e in qi.types {
+						for tref in qi.tags {
+							("automation_\(inst.name)_depquery_event_\(e.eventType)_must_have_tag_\(tref._tagName)"): list.Contains(_eventTagMap[e.eventType], tref._tagName) & true
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -409,17 +454,24 @@ import (
 				}
 			}
 
-			// ReadModel fields must come from queried events or be computed/mapped
+			// ReadModel fields must come from queried events (including dependent query) or be computed/mapped
 			// Dotted paths (e.g. "items.price") cover their parent field (e.g. "items")
 			let _queriedEventFieldNames = [
 				for qi in inst.query.items
 				for evt in qi.types
 				for k, _ in events[evt.eventType].fields {k},
 			]
+			let _depQueriedEventFieldNames = [
+				if inst.dependentQuery != _|_
+				for qi in inst.dependentQuery.items
+				for evt in qi.types
+				for k, _ in events[evt.eventType].fields {k},
+			]
+			let _allQueriedEventFieldNames = list.Concat([_queriedEventFieldNames, _depQueriedEventFieldNames])
 			let _rmMappedFields = [for k, _ in inst.readModel.mapping {k}]
 			let _rmComputedFields = [for k, _ in inst.readModel.computed {k}]
 			for fieldName, _ in inst.readModel._schema {
-				let inEvents = list.Contains(_queriedEventFieldNames, fieldName)
+				let inEvents = list.Contains(_allQueriedEventFieldNames, fieldName)
 				let inMapping = list.Contains(_rmMappedFields, fieldName)
 				let isComputed = list.Contains(_rmComputedFields, fieldName)
 				// Check if any dotted path starts with this field name
@@ -428,13 +480,19 @@ import (
 				("view_\(inst.name)_field_\(fieldName)_must_come_from_events_or_computed"): (inEvents | inMapping | isComputed | _hasDottedMapping | _hasDottedComputed) & true
 			}
 
-			// Validate computed fields: event must be queried, fields must exist in event
+			// Validate computed fields: event must be queried (including dependent query), fields must exist in event
 			let _queriedEventTypes = [
 				for qi in inst.query.items
 				for evt in qi.types {evt.eventType},
 			]
+			let _depQueriedEventTypes = [
+				if inst.dependentQuery != _|_
+				for qi in inst.dependentQuery.items
+				for evt in qi.types {evt.eventType},
+			]
+			let _allQueriedEventTypes = list.Concat([_queriedEventTypes, _depQueriedEventTypes])
 			for computedName, comp in inst.readModel.computed {
-				("view_\(inst.name)_computed_\(computedName)_event_must_be_queried"): list.Contains(_queriedEventTypes, comp.event.eventType) & true
+				("view_\(inst.name)_computed_\(computedName)_event_must_be_queried"): list.Contains(_allQueriedEventTypes, comp.event.eventType) & true
 
 				let _eventFieldNames = [for k, _ in events[comp.event.eventType].fields {k}]
 				for _, f in comp.fields {
@@ -442,10 +500,10 @@ import (
 				}
 			}
 
-			// Validate mapped fields: event queried, field exists, type matches
+			// Validate mapped fields: event queried (including dependent query), field exists, type matches
 			// Note: dotted paths (e.g. "items.price") are validated in Go, not here
 			for mappedName, m in inst.readModel.mapping {
-				("view_\(inst.name)_mapping_\(mappedName)_event_must_be_queried"): list.Contains(_queriedEventTypes, m.event.eventType) & true
+				("view_\(inst.name)_mapping_\(mappedName)_event_must_be_queried"): list.Contains(_allQueriedEventTypes, m.event.eventType) & true
 
 				let _eventFieldNames = [for k, _ in events[m.event.eventType].fields {k}]
 				("view_\(inst.name)_mapping_\(mappedName)_field_\(m.field)_must_exist_in_event"): list.Contains(_eventFieldNames, m.field) & true
@@ -457,10 +515,10 @@ import (
 				}
 			}
 
-			// Validate view scenario given events are in query types
+			// Validate view scenario given events are in query types (including dependent query)
 			for si, s in inst.scenarios {
 				for ge in s.given {
-					("view_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_queriedEventTypes, ge.eventType) & true
+					("view_\(inst.name)_scenario\(si)_given_\(ge.eventType)_must_be_in_query"): list.Contains(_allQueriedEventTypes, ge.eventType) & true
 				}
 			}
 
@@ -471,6 +529,23 @@ import (
 					let _endpointParams = [for k, _ in inst.endpoint.params {k}]
 					for p in _pathParams {
 						("view_\(inst.name)_endpoint_path_param_\(p)_must_be_in_params"): list.Contains(_endpointParams, p) & true
+					}
+				}
+			}
+
+			// Validate dependent query if present
+			if inst.dependentQuery != _|_ {
+				for qi in inst.dependentQuery.items {
+					// All tags must be defined
+					for tref in qi.tags {
+						_dcbTagValid: list.Contains(_tagList, tref._tagName) & true
+					}
+
+					// Satisfiability: EVERY event must have ALL required tags
+					for e in qi.types {
+						for tref in qi.tags {
+							("view_\(inst.name)_depquery_event_\(e.eventType)_must_have_tag_\(tref._tagName)"): list.Contains(_eventTagMap[e.eventType], tref._tagName) & true
+						}
 					}
 				}
 			}

@@ -116,9 +116,15 @@ export interface InternalEventTrigger {
 
 export type Trigger = EndpointTrigger | ExternalEventTrigger | InternalEventTrigger;
 
+export interface DependentQuery {
+  extract: Record<string, { event: string; field: string; many?: boolean }>;
+  items: QueryItem[];
+}
+
 export interface Command {
   fields: Record<string, string>;
   query: QueryItem[];
+  dependentQuery?: DependentQuery;
 }
 
 export interface QueryItem {

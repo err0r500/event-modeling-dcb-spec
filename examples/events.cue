@@ -6,7 +6,7 @@ _events: [Type=string]: em.#Event & {eventType: Type}
 _events: {
 	CartCreated: {
 		fields: {
-			cartId: string
+			cartId:    string
 			shopperId: string
 		}
 		tags: [_tags.cart_id, _tags.shopper_id]
@@ -84,8 +84,8 @@ _events: {
 
 	CartSubmitted: {
 		fields: {
-			cartId: string
-            shopperId: string
+			cartId:    string
+			shopperId: string
 		}
 		tags: [_tags.cart_id, _tags.shopper_id]
 	}

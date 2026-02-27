@@ -5,14 +5,17 @@ package em
 // Two forms:
 //   Simple: tags.cart - bare tag (category, no value)
 //   Parameterized: {tag: tags.cartId, value: command.fields.cartId}
+//   FromExtract: {tag: tags.discountCode, fromExtract: "discountCode"} (only in dependentQuery)
 //
 // Fields:
 //   tag: #Tag - reference to tag from board.tags
 //   value?: tag.type - required if tag.param is set, must match tag's type
+//   fromExtract?: string - name from dependentQuery.extract (mutually exclusive with value)
 #TagRef: {
-	tag:      #Tag
-	value?:   tag.type
-	_tagName: tag.name
+	tag:          #Tag
+	value?:       tag.type
+	fromExtract?: string
+	_tagName:     tag.name
 }
 
 // #QueryItem - Single DCB query clause
@@ -44,4 +47,53 @@ package em
 // Pattern: (event has ANY of types) AND (has ALL of tags)
 #DCBQuery: {
 	items: [...#QueryItem]
+}
+
+// #QueryExtract - Extract values from primary query results for dependent query
+//
+// Maps a name to an event type and field, allowing the dependent query
+// to use values extracted from events returned by the primary query.
+//
+// Example:
+//   extract: {
+//     discountCode: {event: _events.CartCreated, field: "discountCode"}
+//   }
+#QueryExtract: {
+	[name=string]: {
+		event: #Event
+		field: or([ for k, _ in event.fields { k } ]) // must be a field from event.fields
+		many:  bool | *false // true = extract all values (list), false = single value
+	}
+}
+
+// #DependentQuery - Second-phase query using extracted values
+//
+// Enables a two-phase query pattern where the first query retrieves events,
+// values are extracted from those events, and a second query uses those
+// extracted values as tag parameters.
+//
+// Fields:
+//   extract: #QueryExtract - values to extract from primary query events
+//   items: [...#QueryItem] - query clauses using fromExtract in tags
+//
+// Example:
+//   dependentQuery: {
+//     extract: {discountCode: {event: _events.CartCreated, field: "discountCode"}}
+//     items: [{
+//       types: [_events.DiscountCreated]
+//       tags: [{tag: _tags.discount_code, fromExtract: "discountCode"}]
+//     }]
+//   }
+#DependentQuery: {
+	extract: #QueryExtract
+	items: [...#QueryItem]
+
+	// Validate: all fromExtract references must exist in extract
+	// Error shows valid extract names when invalid
+	_extractKeys: or([ for k, _ in extract { k } ])
+	_validateRefs: [
+		for _, item in items for _, t in item.tags if t.fromExtract != _|_ {
+			t.fromExtract & _extractKeys
+		}
+	]
 }

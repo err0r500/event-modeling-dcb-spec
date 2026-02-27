@@ -252,6 +252,10 @@ func reifyViewSlice(v cue.Value) map[string]any {
 		out["endpoint"] = reifyEndpoint(ep)
 	}
 
+	if depQuery := reifyDependentQuery(v.LookupPath(cue.ParsePath("dependentQuery"))); depQuery != nil {
+		out["dependentQuery"] = depQuery
+	}
+
 	if img := getString(v, "image"); img != "" {
 		out["image"] = img
 	}
@@ -384,6 +388,9 @@ func reifyCommand(v cue.Value) map[string]any {
 	}
 	if query := reifyQueryItems(v.LookupPath(cue.ParsePath("query.items"))); len(query) > 0 {
 		out["query"] = query
+	}
+	if depQuery := reifyDependentQuery(v.LookupPath(cue.ParsePath("dependentQuery"))); depQuery != nil {
+		out["dependentQuery"] = depQuery
 	}
 	if comp := reifyCommandComputed(v.LookupPath(cue.ParsePath("computed"))); len(comp) > 0 {
 		out["computed"] = comp
@@ -524,6 +531,10 @@ func reifyQueryItem(v cue.Value) map[string]any {
 				if param := getString(tagField, "param"); param != "" {
 					tag["param"] = param
 				}
+				// Check for fromExtract
+				if fromExtract := getString(tv, "fromExtract"); fromExtract != "" {
+					tag["fromExtract"] = fromExtract
+				}
 			} else {
 				// Bare tag
 				tag["tag"] = getString(tv, "name")
@@ -542,6 +553,54 @@ func reifyQueryItem(v cue.Value) map[string]any {
 		"types": types,
 		"tags":  tags,
 	}
+}
+
+// reifyDependentQuery extracts dependentQuery: {extract: {...}, items: [...]}
+func reifyDependentQuery(v cue.Value) map[string]any {
+	if !v.Exists() || v.Err() != nil {
+		return nil
+	}
+
+	out := map[string]any{}
+
+	// Extract
+	extractVal := v.LookupPath(cue.ParsePath("extract"))
+	if extractVal.Exists() && extractVal.Err() == nil {
+		extract := map[string]any{}
+		if iter, err := extractVal.Fields(); err == nil {
+			for iter.Next() {
+				name := selectorLabel(iter.Selector())
+				if len(name) > 0 && name[0] == '_' {
+					continue
+				}
+				ev := iter.Value()
+				item := map[string]any{
+					"event": getString(ev, "event.eventType"),
+					"field": getString(ev, "field"),
+				}
+				// Include many if true (default is false)
+				if manyVal := ev.LookupPath(cue.ParsePath("many")); manyVal.Exists() {
+					if b, err := manyVal.Bool(); err == nil && b {
+						item["many"] = true
+					}
+				}
+				extract[name] = item
+			}
+		}
+		if len(extract) > 0 {
+			out["extract"] = extract
+		}
+	}
+
+	// Items
+	if items := reifyQueryItems(v.LookupPath(cue.ParsePath("items"))); len(items) > 0 {
+		out["items"] = items
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func reifyEmits(v cue.Value) []any {
