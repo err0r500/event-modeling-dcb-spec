@@ -55,9 +55,10 @@ func main() {
 
 	// Start file watcher in background
 	if *watch {
-		go watchAndWrite(*file, *boardName, *outdir)
+		// Suppress log output when TUI is active (errors shown via manifest)
+		verbose := *noTui
+		go watchAndWrite(*file, *boardName, *outdir, verbose)
 	}
-
 
 	// Run TUI (blocking) or just wait
 	if !*noTui {
@@ -80,7 +81,7 @@ func writeIR(filePath, boardName, outdir string) error {
 	return board.WriteBoardFiles(outdir, manifest, slices, srcDir, images)
 }
 
-func watchAndWrite(filePath, boardName, outdir string) {
+func watchAndWrite(filePath, boardName, outdir string, verbose bool) {
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
 		log.Fatalf("abs path: %v", err)
@@ -97,7 +98,9 @@ func watchAndWrite(filePath, boardName, outdir string) {
 		log.Fatalf("watch dir: %v", err)
 	}
 
-	log.Printf("watching %s → %s", dir, outdir)
+	if verbose {
+		log.Printf("watching %s → %s", dir, outdir)
+	}
 
 	for {
 		select {
@@ -113,13 +116,17 @@ func watchAndWrite(filePath, boardName, outdir string) {
 				<-watcher.Events
 			}
 			if err := writeIR(filePath, boardName, outdir); err != nil {
-				log.Printf("error: %v", err)
+				if verbose {
+					log.Printf("error: %v", err)
+				}
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
 			}
-			log.Printf("watcher error: %v", err)
+			if verbose {
+				log.Printf("watcher error: %v", err)
+			}
 		}
 	}
 }

@@ -138,6 +138,16 @@ package em
 	computed: {[string]: string} | *{}
 	// Field mapping: cmdField -> endpoint.params.x or endpoint.body.x
 	mapping: #Field | *{}
+
+	// Validate: dependentQuery.extract events must be in primary query.items[*].types
+	if dependentQuery != _|_ {
+		_queryEvents: or([ for item in query.items for e in item.types {e.eventType}])
+		_validateExtractEvents: [
+			for _, ext in dependentQuery.extract {
+				ext.event.eventType & _queryEvents
+			}
+		]
+	}
 }
 
 // #ComputedField - ReadModel field derived from event fields

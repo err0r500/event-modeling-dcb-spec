@@ -1666,7 +1666,7 @@ board: em.#Board & {
 	}]
 }
 `
-	assertInvalidGo(t, src, "extract.productId", "must be in primary query")
+	assertInvalid(t, src, "empty disjunction")
 }
 
 func TestInvalidDependentQueryExtractFieldNotInEvent(t *testing.T) {

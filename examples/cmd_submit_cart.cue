@@ -41,14 +41,13 @@ SubmitCart: em.#ChangeSlice & {
 			]
 		}
 
-		// Second phase: check inventory for each product in cart
 		dependentQuery: {
 			extract: {
 				productId: {event: _events.ItemAdded, field: "productId", many: true}
 			}
 			items: [{
 				types: [_events.InventoryChanged]
-				tags: [{tag: _tags.product_id, fromExtract: "productId"}]
+				tags: [{tag: _tags.product_id, fromExtract: extract.productId.field}]
 			}]
 		}
 	}

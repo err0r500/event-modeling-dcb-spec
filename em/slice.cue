@@ -92,6 +92,16 @@ package em
 	// Optional dependent query using values extracted from primary query
 	dependentQuery?: #DependentQuery
 
+	// Validate: dependentQuery.extract events must be in primary query.items[*].types
+	if dependentQuery != _|_ {
+		_queryEvents: or([ for item in query.items for e in item.types {e.eventType}])
+		_validateExtractEvents: [
+			for _, ext in dependentQuery.extract {
+				ext.event.eventType & _queryEvents
+			}
+		]
+	}
+
 	// View scenarios with type-checked expect against readModel.fields/columns
 	// name, given, query, expect
 	// expect is a list for table cardinality, single struct for single cardinality
