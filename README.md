@@ -1,7 +1,14 @@
 # Fairway spec
 
+## Demos
+### Boad validation
+
 [![validation demo](https://img.youtube.com/vi/AR7GUBSW1rw/0.jpg)](https://www.youtube.com/watch?v=AR7GUBSW1rw)
 
+### Web view
+[![validation demo](https://img.youtube.com/vi/IGCtdy1hm8I/0.jpg)](https://www.youtube.com/watch?v=IGCtdy1hm8I)
+
+## Run
 
 ```
 go run ./cmd/render -file examples/cart.cue -outdir .board/ -watch
